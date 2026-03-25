@@ -1,26 +1,61 @@
-# Virtual environment
+# =========================
+# ENVIRONMENT
+# =========================
 venv/
 .env
 
-# Python
+# =========================
+# PYTHON
+# =========================
 __pycache__/
 *.pyc
 
-# Data
+# =========================
+# DATA (DVC-managed)
+# =========================
 data/raw/*
 data/processed/*
 data/external/*
 
-# Artifacts
-artifacts/*
-mlruns/
+# keep folder structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/external/.gitkeep
 
-# Model files
+# =========================
+# ARTIFACTS (models, preprocessors)
+# =========================
+artifacts/*
+
+# keep structure only
+!artifacts/models/
+!artifacts/preprocessors/
+!artifacts/models/.gitkeep
+!artifacts/preprocessors/.gitkeep
+
+# =========================
+# MODEL FILES
+# =========================
 *.pkl
 *.joblib
 
-# Jupyter
+# =========================
+# MLFLOW
+# =========================
+mlruns/
+
+# =========================
+# JUPYTER
+# =========================
 .ipynb_checkpoints/
 
-# OS
+# =========================
+# OS FILES
+# =========================
 .DS_Store
+Thumbs.db
+
+# =========================
+# LOGS
+# =========================
+*.log

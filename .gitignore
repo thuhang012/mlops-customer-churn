@@ -1,61 +1,38 @@
 # =========================
-# ENVIRONMENT
+# ENVIRONMENT & SYSTEM
 # =========================
 venv/
 .env
-
-# =========================
-# PYTHON
-# =========================
 __pycache__/
 *.pyc
+.DS_Store
+Thumbs.db
+*.log
 
 # =========================
 # DATA (DVC-managed)
 # =========================
+# Chặn toàn bộ nội dung trong các thư mục data
 data/raw/*
 data/processed/*
 data/external/*
 
-# keep folder structure
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!data/external/.gitkeep
+# NGOẠI LỆ: Cho phép Git theo dõi file .dvc và .gitkeep
+!data/**/.gitkeep
+!data/**/*.dvc
+!*.dvc
+!.dvcignore
 
 # =========================
 # ARTIFACTS (models, preprocessors)
 # =========================
 artifacts/*
-
-# keep structure only
-!artifacts/models/
-!artifacts/preprocessors/
-!artifacts/models/.gitkeep
-!artifacts/preprocessors/.gitkeep
+!artifacts/**/.gitkeep
 
 # =========================
-# MODEL FILES
+# MODEL FILES & MLFLOW
 # =========================
 *.pkl
 *.joblib
-
-# =========================
-# MLFLOW
-# =========================
 mlruns/
-
-# =========================
-# JUPYTER
-# =========================
 .ipynb_checkpoints/
-
-# =========================
-# OS FILES
-# =========================
-.DS_Store
-Thumbs.db
-
-# =========================
-# LOGS
-# =========================
-*.log

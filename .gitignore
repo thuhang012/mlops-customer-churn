@@ -1,0 +1,61 @@
+# =========================
+# ENVIRONMENT
+# =========================
+venv/
+.env
+
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.pyc
+
+# =========================
+# DATA (DVC-managed)
+# =========================
+data/raw/*
+data/processed/*
+data/external/*
+
+# keep folder structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/external/.gitkeep
+
+# =========================
+# ARTIFACTS (models, preprocessors)
+# =========================
+artifacts/*
+
+# keep structure only
+!artifacts/models/
+!artifacts/preprocessors/
+!artifacts/models/.gitkeep
+!artifacts/preprocessors/.gitkeep
+
+# =========================
+# MODEL FILES
+# =========================
+*.pkl
+*.joblib
+
+# =========================
+# MLFLOW
+# =========================
+mlruns/
+
+# =========================
+# JUPYTER
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# OS FILES
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# LOGS
+# =========================
+*.log

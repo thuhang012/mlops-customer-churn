@@ -1,5 +1,0 @@
-outs:
-- md5: 1b837fbc9dc98d9c15dbf8d248c544f2
-  size: 9669730
-  hash: md5
-  path: netflix_large.csv

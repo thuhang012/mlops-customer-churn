@@ -1,0 +1,46 @@
+# =========================
+# 1. MÔI TRƯỜNG & HỆ THỐNG
+# =========================
+venv/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+*.log
+
+# =========================
+# 2. CHẶN DỮ LIỆU NẶNG (DVC quản lý)
+# =========================
+# Chặn tất cả file dữ liệu gốc và file trung gian
+**/*.csv
+**/*.xlsx
+**/*.parquet
+**/*.json
+**/*.zip
+
+# Chặn nội dung trong các thư mục data cụ thể (theo cấu trúc của bạn)
+**/data/raw/*
+**/data/processed/*
+**/data/external/*
+
+# =========================
+# 3. CHẶN ARTIFACTS (Models, Scalers)
+# =========================
+artifacts/
+*.pkl
+*.joblib
+mlruns/
+
+# =========================
+# 4. NGOẠI LỆ (CỰC KỲ QUAN TRỌNG CHO DVC)
+# =========================
+# KHÔNG ĐƯỢC CHẶN các file biên lai của DVC
+!*.dvc
+!.dvcignore
+
+# KHÔNG ĐƯỢC CHẶN các file giữ cấu trúc thư mục
+!**/.gitkeep
+
+# Cho phép các file cấu hình và mã nguồn trong các thư mục bị chặn (nếu có)
+!**/data/**/*.py

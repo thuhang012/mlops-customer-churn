@@ -1,0 +1,25 @@
+# Không copy môi trường ảo
+venv/
+.env
+
+# Không copy rác của Git và DVC
+.git/
+.gitignore
+.github/
+.dvc/
+dvc.yaml
+dvc.lock
+
+# Không copy data thô khổng lồ
+data/
+artifacts/
+
+# File tạm của Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+notebooks/

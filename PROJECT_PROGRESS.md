@@ -1,133 +1,152 @@
 # PROJECT_PROGRESS
 
-## Muc tieu tai lieu
-- Day la file tong hop tien do trung tam cho toan bo MLOpsProject.
-- Theo doi rieng:
-  - CI/CD (vai tro M5)
-  - Tien do he thong tong the (M1-M6)
-- Duoc cap nhat dinh ky theo sprint va theo su kien ky thuat quan trong.
+## Document Purpose
 
-## Cach doc nhanh
-- Neu ban la beginner, doc theo thu tu:
-  1. Tong quan hien trang
-  2. CI/CD (M5) - Da xong / Dang lam / Tiep theo
-  3. He thong tong the - Da xong / Blocker / Tiep theo
-  4. Nhat ky cap nhat gan nhat
+- This is the central progress tracker for the full MLOpsProject.
+- It tracks:
+  - CI/CD progress (M5 scope)
+  - Overall system progress (M1-M6)
+- It should be updated regularly by sprint and by important technical milestones.
+
+## How To Read Quickly
+
+- If you are a beginner, read in this order:
+  1. Current snapshot
+  2. CI/CD status (Done, In Progress, Next)
+  3. Overall system status (Done, Blockers, Next)
+  4. Latest update log
 
 ---
 
-## 1) Tong quan hien trang (Sprint 1)
-- Trang thai chung: Da co khung source va API mock; chua hoan tat pipeline data va infra.
-- M5 (CI/CD): Da dung xong bo nen tang CI va co them CD mau de build/push image.
-- Data/DVC: Dang blocker do object du lieu thieu tren remote DVC.
+## 1) Current Snapshot (Sprint 1)
+
+- Overall state: source structure and mock API are available; data and infrastructure are still incomplete.
+- M5 state: CI foundation is complete, and a CD scaffold exists for image build and publish flow.
+- Data/DVC blocker: required dataset object is missing on DVC remote storage.
 
 ## 2) CI/CD (M5) Status
 
-### Da hoan thanh
-- Tao workflow CI:
+### Completed
+
+- CI workflow created:
   - .github/workflows/ci.yml
-  - Trigger: push + pull_request vao nhanh main
+  - Triggers: push and pull_request to main
   - Runner: ubuntu-latest
   - Python: 3.10
   - Steps: install dependencies, Ruff lint, run tests
-- Tach dev dependencies:
+- Development dependencies split:
   - requirements-dev.txt
-  - Goi gom: ruff, pytest, pytest-cov, httpx
-- Cau hinh project (unified):
-  - pyproject.toml (Ruff + pytest config)
-- Tao smoke tests toi thieu:
-  - tests/test_api.py: test GET /health tra 200
+  - Includes: ruff, pytest, pytest-cov, httpx
+- Unified project config:
+  - pyproject.toml (Ruff and pytest config)
+- Minimum smoke tests added:
+  - tests/test_api.py: GET /health returns 200
   - tests/test_data.py: dummy test
   - tests/test_model.py: dummy test
+- CD scaffold created:
+  - .github/workflows/cd.yml
+  - Flow: build image -> smoke test /health -> push GHCR image -> deployment summary
 
-### Da xac minh local
-- Ruff check: PASS (0 loi)
-- pytest: PASS (3 tests)
+### Locally Verified
 
-### Dang mo / can tiep tuc
-- Chua push PR de xac nhan GitHub Actions chay xanh tren remote.
-- Da co CD mau, can xac nhan chay that tren GitHub va ket noi dich vu deploy (Render/AWS).
+- Ruff check: PASS (0 errors)
+- Pytest: PASS (3 tests)
 
-## 3) He thong tong the (M1-M6) Status tom tat
+### Open / Next
 
-### Da co san
-- API mock sprint 1:
+- Push PR and confirm CI is green on GitHub Actions.
+- Validate CD workflow end-to-end on GitHub.
+- Connect deployment target (Render or AWS) for real environment deployment.
+
+## 3) Overall System (M1-M6) Status
+
+### Available
+
+- Sprint 1 mock API is available:
   - src/mlops_project/api/schema.py
   - src/mlops_project/api/service.py
   - src/mlops_project/api/serve.py
-- DVC metadata cho file raw:
+- DVC metadata exists:
   - data/raw/netflix_large.csv.dvc
-- Co file CSV tam local de thu nghiem:
+- Temporary local CSV exists for testing:
   - data/raw/netflix_large_dataset_cleaned.csv
+- Base container files now exist:
+  - Dockerfile
+  - docker-compose.yml
 
-### Blockers / Ruil ro hien tai
-- Blocker Data:
-  - dvc pull -r origin fail vi thieu object cache tren remote cho data/raw/netflix_large.csv
-- Bao mat:
-  - README_DVC.md dang co vi du token plaintext, can thay bang cach an toan hon
-- Tien do chung:
-  - dvc.yaml rong
-  - Dockerfile da co ban API
-  - docker-compose.yml da co service API co ban
-  - README.md rong
+### Blockers / Risks
 
-### Viec tiep theo theo huong Agile/Kanban
+- Data blocker:
+  - dvc pull -r origin fails because remote cache is missing object for data/raw/netflix_large.csv
+- Security risk:
+  - README_DVC.md includes a plaintext token example and should be replaced with a safe approach
+- Remaining gaps:
+  - dvc.yaml is empty
+  - README.md is empty
+
+### Next Actions (Agile/Kanban)
+
 - M5:
-  - Tao PR cho CI setup va xin 1 approval
-  - Dam bao CI xanh tren GitHub Actions
+  - Open PR for CI/CD setup and request at least one approval
+  - Ensure CI and CD are green on GitHub Actions
 - M1:
-  - Dong bo lai DVC remote object de team pull duoc data chuan
+  - Sync missing DVC object to remote so team can pull the official dataset
 - M2-M4-M6:
-  - Tiep tuc theo mock interfaces da co, khong doi data that moi moi bat dau
+  - Continue implementation using existing mock interfaces without waiting for final data flow
 
 ---
 
-## 4) Nhat ky cap nhat
+## 4) Update Log
 
-### 2026-03-29 - Dot cap nhat #3 (CD Scaffold)
-- Them workflow CD: .github/workflows/cd.yml.
-- Luong CD mau: build image -> smoke test /health -> push GHCR -> deployment summary.
-- Them Dockerfile toi thieu cho FastAPI app.
-- Them docker-compose.yml toi thieu de chay service API.
-- Sửa ci.yml bo option Ruff khong hop le (--show-source).
+### 2026-03-29 - Update #3 (CD Scaffold)
 
-### 2026-03-29 - Dot cap nhat #2 (Upgrade Ruff)
-- Upgrade flake8 sang Ruff (best practice 2026).
-- Tao pyproject.toml tong hop cau hinh Ruff + pytest.
-- Cap nhat ci.yml de goi ruff check thay flake8.
-- Fix: W292 (newline), W191 (tabs), E402 (import position) trong tests/test_api.py.
-- Xac nhan local: Ruff check PASS + pytest PASS.
-- File .flake8 khong con can, config nam trong pyproject.toml.
+- Added CD workflow: .github/workflows/cd.yml
+- Added initial CD flow: build image -> smoke test /health -> push GHCR -> deployment summary
+- Added minimal Dockerfile for FastAPI app
+- Added minimal docker-compose.yml for API service
+- Fixed invalid Ruff option in CI workflow
 
-### 2026-03-29 - Dot cap nhat #1
-- Da khoanh vung dung scope M5 Sprint 1.
-- Da setup CI co ban (lint + test) va verify pass local.
-- Da xac minh nguyen nhan loi DVC pull la thieu object tren remote, khong phai loi lenh local.
-- Da tai tam 1 file CSV local phuc vu hoc/tam test, khong thay the duoc DVC remote chuan.
+### 2026-03-29 - Update #2 (Ruff Upgrade)
 
----
+- Migrated from flake8 to Ruff (current best practice)
+- Added pyproject.toml as unified config for Ruff and pytest
+- Updated ci.yml to run Ruff instead of flake8
+- Fixed W292, W191, E402 issues in tests/test_api.py
+- Verified locally: Ruff PASS and pytest PASS
 
-## 5) Dinh nghia Hoan thanh (tracking de check)
+### 2026-03-29 - Update #1
 
-### DoD M5 Sprint 1
-- [x] Co workflow CI auto run tren push/PR
-- [x] Co lint gate (critical errors)
-- [x] Co it nhat 1 unit/smoke test cho logic cot loi API
-- [ ] CI xanh tren GitHub Actions (sau khi push PR)
-- [ ] Co it nhat 1 review/approve PR
-
-### DoD he thong muc co ban (toan doi)
-- [ ] DVC pull duoc data chuan tren may moi
-- [ ] Train script + MLflow
-- [ ] API dockerized
-- [ ] Docker compose run duoc cum dich vu
-- [ ] Monitoring drift co report
+- Confirmed M5 Sprint 1 scope
+- Set up base CI (lint + tests) and verified locally
+- Verified DVC pull failure root cause is missing remote object, not local command setup
+- Downloaded temporary local CSV for testing and learning only
 
 ---
 
-## 6) Quy uoc cap nhat file nay
-- Moi lan co thay doi quan trong, cap nhat:
-  - Muc 2 (CI/CD) neu lien quan M5
-  - Muc 3 (Tong the) neu lien quan he thong
-  - Them 1 dong vao Muc 4 (Nhat ky)
-- Nguyen tac: ngan, dung su that da verify, co trang thai ro rang (Done/In progress/Blocked).
+## 5) Definition of Done Tracking
+
+### M5 Sprint 1 DoD
+
+- [x] CI workflow runs automatically on push and PR
+- [x] Lint quality gate is in place
+- [x] At least one smoke/unit test exists for core API logic
+- [ ] CI confirmed green on GitHub Actions after PR
+- [ ] At least one teammate review and approval
+
+### Team Baseline DoD
+
+- [ ] DVC pull works on a clean machine
+- [ ] Training script integrated with MLflow
+- [ ] API fully dockerized
+- [ ] Docker Compose can run the service stack
+- [ ] Drift monitoring report available
+
+---
+
+## 6) Update Rules For This File
+
+- For each important change, update:
+  - Section 2 for M5 CI/CD changes
+  - Section 3 for overall system changes
+  - Section 4 with a new dated log entry
+- Keep entries short, factual, verified, and clearly marked as Done, In Progress, or Blocked.

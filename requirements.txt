@@ -3,5 +3,6 @@ numpy
 scikit-learn
 fastapi
 uvicorn
+pydantic
 mlflow
 pytest

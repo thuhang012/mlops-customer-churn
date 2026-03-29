@@ -26,4 +26,4 @@ COPY src/ /app/src/
 EXPOSE 8000
 
 # Lệnh khởi chạy uvicorn thẳng tiến tới file serve.py
-CMD ["uvicorn", "src.serve:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.mlops_project.api.serve:app", "--host", "0.0.0.0", "--port", "8000"]

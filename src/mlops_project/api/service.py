@@ -1,9 +1,10 @@
+import joblib
+import pandas as pd
 from src.mlops_project.api.schema import CustomerInput
 
-def predict(data: CustomerInput) -> float:
+model = joblib.load("artifacts/models/dummy_model.pkl")
 
-    # rule fake => return model.predic_prob(..)
-    if data.monthly_charges > 50:
-        return 0.7
-    else:
-        return 0.3
+def predict(data: CustomerInput):
+    df = pd.DataFrame([data.dict()])
+    y_pred = model.predict(df)
+    return int(y_pred[0])

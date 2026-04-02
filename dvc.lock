@@ -1,0 +1,22 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python data/preprocess.py
+    deps:
+    - path: data/preprocess.py
+      hash: md5
+      md5: b3ee6c74f9b219bd6f577c55bd0caae9
+      size: 7766
+    - path: data/raw/netflix_large.csv
+      hash: md5
+      md5: 1b837fbc9dc98d9c15dbf8d248c544f2
+      size: 9669730
+    outs:
+    - path: artifacts/preprocessors/preprocessor.pkl
+      hash: md5
+      md5: bd2236b2ac6dfb03845d8b8ba750f94f
+      size: 159463
+    - path: data/processed/cleaned_data.csv
+      hash: md5
+      md5: 221682bcf85b1d65a30d956b42e7eed1
+      size: 35611880

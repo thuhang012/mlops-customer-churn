@@ -1,0 +1,9 @@
+stages:
+  preprocess:
+    cmd: python data/preprocess.py
+    deps:
+      - data/raw/netflix_large.csv
+      - data/preprocess.py
+    outs:
+      - data/processed/cleaned_data.csv
+      - artifacts/preprocessors/preprocessor.pkl

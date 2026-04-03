@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from src.mlops_project.api.schema import CustomerInput, PredictionOutput
 from src.mlops_project.api.service import predict
 
+from src.mlops_project.utils.logger import log_inference
+
 app = FastAPI(
     title="Churn Prediction API",
     version="0.1.0",
@@ -20,4 +22,7 @@ def health_check():
 @app.post("/predict", response_model=PredictionOutput)
 def predict_churn(data: CustomerInput):
     churn_probability = predict(data)
+    
+    log_inference(data.dict(), churn_probability)
+    
     return PredictionOutput(churn_probability=churn_probability)

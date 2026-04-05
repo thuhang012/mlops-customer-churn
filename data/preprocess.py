@@ -17,7 +17,8 @@ CLEANED_DATA_PATH = Path("data/processed/cleaned_data.csv")
 PREPROCESSOR_PATH = Path("artifacts/preprocessors/preprocessor.pkl")
 
 TARGET_COLUMN = "churn_status"
-DATE_COLUMNS = ["subscription_start_date", "subscription_end_date", "date_watched"]
+DATE_COLUMNS = ["subscription_start_date", "date_watched"] 
+LEAKAGE_DROP_COLUMNS = ["subscription_end_date"]
 HIGH_CARDINALITY_DROP_COLUMNS = ["user_id", "title"]
 TARGET_LABEL_MAPPING = {"Active": 0, "Cancelled": 1}
 
@@ -34,35 +35,30 @@ def _build_one_hot_encoder() -> OneHotEncoder:
 
 
 def _add_date_features(df: pd.DataFrame) -> pd.DataFrame:
-	# Convert raw date strings into deterministic numeric features.
-	work_df = df.copy()
+    work_df = df.copy()
 
-	for col in DATE_COLUMNS:
-		if col not in work_df.columns:
-			continue
+    # Chỉ xử lý các cột ngày an toàn (Start date, etc.)
+    for col in DATE_COLUMNS:
+        if col not in work_df.columns:
+            continue
+        dt = pd.to_datetime(work_df[col], errors="coerce")
+        work_df[f"{col}_year"] = dt.dt.year
+        work_df[f"{col}_month"] = dt.dt.month
+        work_df[f"{col}_day"] = dt.dt.day
+        work_df[f"{col}_weekday"] = dt.dt.weekday
 
-		dt = pd.to_datetime(work_df[col], errors="coerce")
-		work_df[f"{col}_year"] = dt.dt.year
-		work_df[f"{col}_month"] = dt.dt.month
-		work_df[f"{col}_day"] = dt.dt.day
-		work_df[f"{col}_weekday"] = dt.dt.weekday
+    # Tính toán thời gian từ lúc bắt đầu đến lúc xem (An toàn)
+    if {"subscription_start_date", "date_watched"}.issubset(work_df.columns):
+        start_dt = pd.to_datetime(work_df["subscription_start_date"], errors="coerce")
+        watched_dt = pd.to_datetime(work_df["date_watched"], errors="coerce")
+        work_df["days_from_start_to_watch"] = (watched_dt - start_dt).dt.days
 
-	# Add simple duration features to keep temporal signal after dropping raw dates.
-	if {"subscription_start_date", "subscription_end_date"}.issubset(work_df.columns):
-		start_dt = pd.to_datetime(work_df["subscription_start_date"], errors="coerce")
-		end_dt = pd.to_datetime(work_df["subscription_end_date"], errors="coerce")
-		work_df["subscription_duration_days"] = (end_dt - start_dt).dt.days
+    # Xóa các cột gốc và các cột gây Leakage
+    drop_candidates = DATE_COLUMNS + ["subscription_end_date"]
+    existing_drop_cols = [col for col in drop_candidates if col in work_df.columns]
+    work_df = work_df.drop(columns=existing_drop_cols)
 
-	if {"subscription_start_date", "date_watched"}.issubset(work_df.columns):
-		start_dt = pd.to_datetime(work_df["subscription_start_date"], errors="coerce")
-		watched_dt = pd.to_datetime(work_df["date_watched"], errors="coerce")
-		work_df["days_from_start_to_watch"] = (watched_dt - start_dt).dt.days
-
-	existing_date_cols = [col for col in DATE_COLUMNS if col in work_df.columns]
-	if existing_date_cols:
-		work_df = work_df.drop(columns=existing_date_cols)
-
-	return work_df
+    return work_df
 
 
 def _build_preprocessor(feature_df: pd.DataFrame) -> tuple[ColumnTransformer, list[str], list[str]]:

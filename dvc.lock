@@ -1,22 +1,34 @@
 schema: '2.0'
 stages:
   preprocess:
-    cmd: python data/preprocess.py
+    cmd: python -m src.mlops_project.data.preprocess
     deps:
-    - path: data/preprocess.py
-      hash: md5
-      md5: b3ee6c74f9b219bd6f577c55bd0caae9
-      size: 7766
     - path: data/raw/netflix_large.csv
       hash: md5
       md5: 1b837fbc9dc98d9c15dbf8d248c544f2
       size: 9669730
+    - path: src/mlops_project/data/load_data.py
+      hash: md5
+      md5: fb7285937e9237b8ac7996b802f34896
+      size: 799
+    - path: src/mlops_project/data/preprocess.py
+      hash: md5
+      md5: beacd9babef8b2ec932458182a75c102
+      size: 4995
+    - path: src/mlops_project/data/validate_data.py
+      hash: md5
+      md5: e871d7c17be018593e0f55ce8d07962f
+      size: 2833
+    - path: src/mlops_project/features/build_features.py
+      hash: md5
+      md5: ddccf21c8a88600bbbf3dcf4bbc27d58
+      size: 5552
     outs:
     - path: artifacts/preprocessors/preprocessor.pkl
       hash: md5
-      md5: bd2236b2ac6dfb03845d8b8ba750f94f
-      size: 159463
+      md5: bc8ad80b3f12b237f5c6970a47591d8f
+      size: 160726
     - path: data/processed/cleaned_data.csv
       hash: md5
-      md5: 221682bcf85b1d65a30d956b42e7eed1
-      size: 35611880
+      md5: 9807819fa0a65768c8a991afa3423137
+      size: 28496489

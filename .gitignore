@@ -50,3 +50,6 @@ mlflowdb/
 # NOTEBOOK
 # =========================
 .ipynb_checkpoints/
+
+monitoring/inference/*
+!monitoring/inference/.gitkeep

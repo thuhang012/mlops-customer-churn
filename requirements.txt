@@ -7,3 +7,7 @@ uvicorn>=0.26
 pydantic
 mlflow
 pytest
+optuna
+xgboost
+lgbm
+dvc

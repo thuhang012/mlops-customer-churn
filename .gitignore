@@ -12,12 +12,11 @@ Thumbs.db
 # =========================
 # DATA (DVC-managed)
 # =========================
-# Chặn toàn bộ nội dung trong các thư mục data
 data/raw/*
 data/processed/*
 data/external/*
 
-# NGOẠI LỆ: Cho phép Git theo dõi file .dvc và .gitkeep
+# keep structure & dvc
 !data/**/.gitkeep
 !data/**/*.dvc
 !*.dvc
@@ -26,13 +25,28 @@ data/external/*
 # =========================
 # ARTIFACTS (models, preprocessors)
 # =========================
-artifacts/*
-!artifacts/**/.gitkeep
+artifacts/models/*.pkl
+!artifacts/models/*.yaml
+
+# keep folder structure
+!artifacts/models/
+!artifacts/models/.gitkeep
 
 # =========================
-# MODEL FILES & MLFLOW
+# MODEL FILES
 # =========================
 *.pkl
 *.joblib
-mlruns/
+
+# =========================
+# MLFLOW
+# =========================
+
+mlartifacts/
+mlflow.db
+mlflowdb/
+
+# =========================
+# NOTEBOOK
+# =========================
 .ipynb_checkpoints/

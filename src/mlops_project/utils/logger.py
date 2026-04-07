@@ -9,7 +9,7 @@ def log_inference(input_data: dict, prediction):
         "timestamp": datetime.now()
     }
 
-    file_path = "src/mlops_project/data/inference_log.csv"
+    file_path = "monitoring/inference/inference_log.csv"
 
     df = pd.DataFrame([log_entry])
 

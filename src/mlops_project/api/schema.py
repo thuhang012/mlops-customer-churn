@@ -33,4 +33,5 @@ class CustomerInput(BaseModel):
 
 
 class PredictionOutput(BaseModel):
-    churn_probability: int
+    churn_probability: float
+    prediction: int

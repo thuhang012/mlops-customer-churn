@@ -1,0 +1,10 @@
+project: Netflix_Prediction
+best_model_overall: RandomForest
+metrics:
+  pr_auc: 0.24460563037833186
+hyperparameters:
+  n_estimators: 230
+  max_depth: 13
+  min_samples_split: 7
+  min_samples_leaf: 1
+  criterion: entropy

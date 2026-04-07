@@ -1,0 +1,12 @@
+stages:
+  preprocess:
+    cmd: python -m src.mlops_project.data.preprocess
+    deps:
+      - data/raw/netflix_large.csv
+      - src/mlops_project/data/load_data.py
+      - src/mlops_project/data/validate_data.py
+      - src/mlops_project/data/preprocess.py
+      - src/mlops_project/features/build_features.py
+    outs:
+      - data/processed/cleaned_data.csv
+      - artifacts/preprocessors/preprocessor.pkl

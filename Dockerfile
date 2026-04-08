@@ -1,29 +1,52 @@
-# Sử dụng base image mỏng nhẹ Python 3.11 (Khoảng 150MB)
+# Sử dụng base image mỏng nhẹ Python 3.11 (Khoảng 150MB) -> Tối ưu < 200MB
 FROM python:3.11-slim
 
-# Thiết lập thư mục làm việc trong Container
-WORKDIR /app
-
-# Khai báo môi trường để Python không nhả bộ đệm (giúp đọc log realtime), tối ưu kích thước
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
-
-# Cài đặt các thư viện lõi hệ thống nếu cần (Bỏ qua nếu không dùng OpenCV)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Bảo mật: Cấm chạy quyền Root. Bắt buộc tạo một user thường tên là 'user' với ID 1000
+RUN useradd -m -u 1000 user \
+    && apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy file requirements trước để tận dụng Docker Cache
-COPY requirements.txt .
+# Chuyển quyền điều khiển sang cho user
+USER user
 
-# Lệnh ăn tiền nhất: --no-cache-dir ép pip xóa file nén cài đặt ngay lập tức -> Size < 500MB
-RUN pip install --no-cache-dir -r requirements.txt
+# Thiết lập đường dẫn môi trường cho user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-# Copy bộ não code nháp API vào
-COPY src/ /app/src/
+# Dọn nhà sang khu vực của user và tạo thư mục log monitoring
+WORKDIR $HOME/app
+RUN mkdir -p monitoring/inference && chown -R user:user monitoring
 
-# Báo hiệu cổng kết nối
+# Khởi tạo Virtual Environment cho User và đặt vào PATH
+ENV VIRTUAL_ENV=/home/user/app/.venv
+RUN python -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Tách riêng cài đặt UV (Rust-based) vào trong venv
+RUN pip install --no-cache-dir uv
+
+# Mượn quyền cấp cho user, copy file text (Tận dụng Layer Caching)
+COPY --chown=user:user requirements.txt .
+
+# Cài đặt thư viện siêu tốc bằng uv (Đã có venv nên không cần --system)
+RUN uv pip install --no-cache -r requirements.txt
+
+# Copy entrypoint bootstrap script (M4) và cấp quyền thực thi
+COPY --chown=user:user scripts/entrypoint.sh ./scripts/entrypoint.sh
+RUN chmod +x ./scripts/entrypoint.sh
+
+# Copy cấu hình model
+COPY --chown=user:user artifacts/ ./artifacts/
+
+# Copy source code
+COPY --chown=user:user src/ ./src/
+
+# Mở cổng kết nối 8000
 EXPOSE 8000
 
-# Lệnh khởi chạy uvicorn thẳng tiến tới file serve.py
-CMD ["uvicorn", "src.mlops_project.api.serve:app", "--host", "0.0.0.0", "--port", "8000"]
+# Sử dụng entrypoint script: tự kiểm tra model, train nếu thiếu, rồi chạy API
+ENTRYPOINT ["bash", "scripts/entrypoint.sh"]

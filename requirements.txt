@@ -8,7 +8,7 @@ pydantic>=2.0,<3.0
 mlflow
 optuna
 xgboost
-lgbm
+lightgbm
 dvc
 # dev/test
 pytest

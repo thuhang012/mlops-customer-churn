@@ -10,9 +10,8 @@ venv/
 dvc.yaml
 dvc.lock
 
-# Không copy data thô khổng lồ
-data/
-artifacts/
+# Không copy data thô khổng lồ (Volume mount trong docker-compose lo hết)
+data/raw/
 
 # File tạm của Python
 __pycache__/

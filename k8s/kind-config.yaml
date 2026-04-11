@@ -1,0 +1,13 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  # Map port 8000 từ K8s ra máy thật để truy cập FastAPI từ trình duyệt
+  - containerPort: 30800
+    hostPort: 8000
+    protocol: TCP
+  # Map port 5555 từ K8s ra máy thật để truy cập MLflow UI
+  - containerPort: 30555
+    hostPort: 5555
+    protocol: TCP

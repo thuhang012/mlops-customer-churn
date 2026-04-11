@@ -1,14 +1,14 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List
 
 class CustomerInput(BaseModel):
     user_id: str
-    age_group: int
+    age_group: int = Field(..., ge=0)
     gender: str
     country: str
     region: str
     subscription_plan: str
-    monthly_fee: float
+    monthly_fee: float = Field(..., ge=0)
     subscription_start_date: str
     subscription_end_date: str
     payment_method: str
@@ -17,20 +17,19 @@ class CustomerInput(BaseModel):
     content_type: str
     genre: str
     language: str
-    release_year: int
+    release_year: int = Field(..., ge=1900, le=2100) 
     device_type: str
-    watch_time_minutes: int
-    session_count: int
-    completion_percentage: int
+    watch_time_minutes: int = Field(..., ge=0)
+    session_count: int = Field(..., ge=0)
+    completion_percentage: int = Field(..., ge=0, le=100)
     date_watched: str
     time_of_day: str
-    rating: int
+    rating: int = Field(..., ge=1, le=5)
     liked: str
     recommendation_source: str
-    days_since_last_watch: int
-    avg_weekly_watch_time: int
-    content_diversity_score: float
-
+    days_since_last_watch: int = Field(..., ge=0)
+    avg_weekly_watch_time: int = Field(..., ge=0)
+    content_diversity_score: float = Field(..., ge=0)
 
 class PredictionOutput(BaseModel):
     churn_probability: float

@@ -1,19 +1,18 @@
-# Không copy môi trường ảo
+# Environments
 venv/
+.venv/
 .env
 
-# Không copy rác của Git và DVC
+# Git & DVC
 .git/
 .gitignore
 .github/
-.dvc/
-dvc.yaml
-dvc.lock
 
-# Không copy data thô khổng lồ (Volume mount trong docker-compose lo hết)
-data/raw/
+# Ignored from Raw Data (but keep dvc files!)
+data/raw/*
+!data/raw/*.dvc
 
-# File tạm của Python
+# Python Caches
 __pycache__/
 *.py[cod]
 *$py.class

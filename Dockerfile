@@ -1,52 +1,62 @@
-# Sử dụng base image mỏng nhẹ Python 3.11 (Khoảng 150MB) -> Tối ưu < 200MB
-FROM python:3.11-slim
+# Stage 1: Builder
+FROM python:3.11-slim AS builder
 
-# Bảo mật: Cấm chạy quyền Root. Bắt buộc tạo một user thường tên là 'user' với ID 1000
-RUN useradd -m -u 1000 user \
-    && apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies required for building and dvc
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Chuyển quyền điều khiển sang cho user
-USER user
-
-# Thiết lập đường dẫn môi trường cho user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
-
-# Dọn nhà sang khu vực của user và tạo thư mục log monitoring
-WORKDIR $HOME/app
-RUN mkdir -p monitoring/inference && chown -R user:user monitoring
-
-# Khởi tạo Virtual Environment cho User và đặt vào PATH
-ENV VIRTUAL_ENV=/home/user/app/.venv
-RUN python -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-# Tách riêng cài đặt UV (Rust-based) vào trong venv
+# Install uv globally for extreme fast dependency resolving
 RUN pip install --no-cache-dir uv
 
-# Mượn quyền cấp cho user, copy file text (Tận dụng Layer Caching)
-COPY --chown=user:user requirements.txt .
+# Create virtual environment and install dependencies
+ENV VIRTUAL_ENV=/opt/venv
+RUN python -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH" \
+    UV_HTTP_TIMEOUT=300
 
-# Cài đặt thư viện siêu tốc bằng uv (Đã có venv nên không cần --system)
-RUN uv pip install --no-cache -r requirements.txt
+WORKDIR /build
+COPY requirements.txt .
 
-# Copy entrypoint bootstrap script (M4) và cấp quyền thực thi
-COPY --chown=user:user scripts/entrypoint.sh ./scripts/entrypoint.sh
-RUN chmod +x ./scripts/entrypoint.sh
+# Install reqs + explicit dvc, dvc[s3] and dagshub
+RUN uv pip install --no-cache -r requirements.txt \
+    && uv pip install --no-cache "dvc[s3]" dagshub "mlflow==2.10.0"
 
-# Copy cấu hình model
-COPY --chown=user:user artifacts/ ./artifacts/
+# Stage 2: Runtime
+FROM python:3.11-slim
 
-# Copy source code
+# Create non-root user
+RUN useradd -m -u 1000 user \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+USER user
+ENV HOME=/home/user \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/home/user/app/src
+
+WORKDIR $HOME/app
+
+# Copy venv from builder
+COPY --from=builder --chown=user:user /opt/venv /opt/venv
+
+# Copy scripts first and ensure entrypoint is executable
+COPY --chown=user:user scripts/ ./scripts/
+RUN sed -i 's/\r$//' ./scripts/entrypoint.sh && chmod +x ./scripts/entrypoint.sh
+
+# Copy Application Code and Configs
+# This ensures that no mock files or raw files are copied, dependent on .dockerignore
 COPY --chown=user:user src/ ./src/
+COPY --chown=user:user artifacts/ ./artifacts/
+COPY --chown=user:user dvc.yaml dvc.lock ./
+COPY --chown=user:user .dvc/ ./.dvc/
 
-# Mở cổng kết nối 8000
 EXPOSE 8000
 
-# Sử dụng entrypoint script: tự kiểm tra model, train nếu thiếu, rồi chạy API
+# Executing the bootstrap
 ENTRYPOINT ["bash", "scripts/entrypoint.sh"]

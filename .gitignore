@@ -53,3 +53,4 @@ mlflowdb/
 
 monitoring/inference/*
 !monitoring/inference/.gitkeep
+artifacts/mlruns/

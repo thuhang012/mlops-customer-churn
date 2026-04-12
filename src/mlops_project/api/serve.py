@@ -8,19 +8,19 @@ from src.mlops_project.utils.logger import log_inference
 app = FastAPI(
     title="Churn Prediction API",
     version="0.1.0",
-    description="FastAPI service for churn prediction"
+    description="FastAPI service for churn prediction",
 )
+
 
 @app.get("/")
 def root():
     return {"message": "Churn Prediction API is running"}
 
+
 @app.get("/health")
 def health_check():
-    return {
-        "status": "ok",
-        **artifacts_status()
-    }
+    return {"status": "ok", **artifacts_status()}
+
 
 @app.post("/predict", response_model=PredictionOutput)
 def predict_churn(data: CustomerInput):
@@ -32,7 +32,8 @@ def predict_churn(data: CustomerInput):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error")
-    
+
+
 @app.post("/batch-predict", response_model=list[PredictionOutput])
 def batch_predict_churn(data: list[CustomerInput]):
     try:

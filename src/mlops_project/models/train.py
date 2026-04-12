@@ -1,6 +1,5 @@
 import argparse
 import pandas as pd
-import numpy as np
 import joblib
 import mlflow
 import mlflow.sklearn
@@ -14,10 +13,9 @@ from sklearn.metrics import (
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
 import logging
 from mlflow.tracking import MlflowClient
-import platform
-import sklearn
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -34,7 +32,8 @@ def get_model_instance(name, params):
     model_map = {
         'RandomForest': RandomForestClassifier,
         'XGBoost': XGBClassifier,
-        'LightGBM': LGBMClassifier
+        'LightGBM': LGBMClassifier,
+        "CatBoost": CatBoostClassifier
     }
     if name not in model_map:
         raise ValueError(f"Unsupported model: {name}. Check 'best_model_overall' in YAML.")
@@ -42,7 +41,7 @@ def get_model_instance(name, params):
 
 def main(args):
     # 1. Load YAML config (Cấu trúc phẳng)
-    with open(args.config, 'r') as f:
+    with open(args.config, 'r', encoding="utf-8") as f:
         config = yaml.safe_load(f)
     
     # Trích xuất thông tin từ cấu trúc YAML của bạn
@@ -53,6 +52,16 @@ def main(args):
     if not best_algo or not params:
         raise KeyError("YAML file missing 'best_model_overall' or 'hyperparameters'")
 
+    # Add safe defaults for CatBoost final training
+    if best_algo == "CatBoost":
+        params = {
+            **params,
+            "loss_function": "Logloss",
+            "verbose": 0,
+            "allow_writing_files": False,
+            "random_state": 42,
+        }
+
     if args.mlflow_tracking_uri:
         mlflow.set_tracking_uri(args.mlflow_tracking_uri)
         mlflow.set_experiment(model_name)
@@ -62,8 +71,16 @@ def main(args):
     target = 'churn_status'  # Tên cột mục tiêu
     split_col = 'data_split'
 
+    required_cols = {target, split_col}
+    missing_cols = required_cols - set(df.columns)
+    if missing_cols:
+        raise ValueError(f"Missing required columns in dataset: {missing_cols}")
+
     train_set = df[df[split_col] == 'train']
     test_set = df[df[split_col] == 'test']
+
+    if train_set.empty or test_set.empty:
+        raise ValueError("Train set or test set is empty. Check 'data_split' column.")
 
     X_train = train_set.drop(columns=[target, split_col])
     y_train = train_set[target]
@@ -89,7 +106,8 @@ def main(args):
             "f1_score": float(f1_score(y_test, y_pred)),
             "roc_auc": float(roc_auc_score(y_test, y_proba)),
             "pr_auc": float(average_precision_score(y_test, y_proba)),
-            "log_loss": float(log_loss(y_test, y_proba))
+            "log_loss": float(log_loss(y_test, y_proba)),
+            "predicted_positive_rate": float(y_pred.mean()),
         }
 
         # Log tham số và kết quả lên MLflow
@@ -118,12 +136,21 @@ def main(args):
         client.transition_model_version_stage(name=model_name, version=mv.version, stage="Staging")
 
         # 6. Lưu file .pkl cục bộ
+        SELECTED_THRESHOLD = 0.5
         save_path = f"{args.models_dir}/{model_name}_final.pkl"
-        joblib.dump(model, save_path)
+        # joblib.dump(model, save_path)
+        joblib.dump(
+            {
+                "model": model,
+                "threshold": SELECTED_THRESHOLD,
+            },
+            save_path,
+        )
         
         logger.info("-" * 30)
         logger.info(f"DONE: Model {model_name} registered (v{mv.version})")
         logger.info(f"FILE SAVED: {save_path}")
+        logger.info(f"Decision threshold saved: {SELECTED_THRESHOLD}")
         logger.info(f"PR-AUC: {metrics['pr_auc']:.4f}")
 
 if __name__ == "__main__":

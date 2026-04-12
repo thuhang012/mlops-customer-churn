@@ -32,6 +32,9 @@ artifacts/models/*.pkl
 !artifacts/models/
 !artifacts/models/.gitkeep
 
+artifacts/tmp/
+catboost_info/
+
 # =========================
 # MODEL FILES
 # =========================

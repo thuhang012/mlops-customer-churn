@@ -1,0 +1,87 @@
+name: CD
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/mlops-project-api
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t mlops-project-api:cd .
+
+      - name: Run container
+        run: |
+          docker run -d --name mlops-api-test -p 8000:8000 mlops-project-api:cd
+          sleep 10
+
+      - name: Smoke test health endpoint
+        run: curl --fail http://127.0.0.1:8000/health
+
+      - name: Print container logs on failure
+        if: failure()
+        run: docker logs mlops-api-test
+
+      - name: Cleanup test container
+        if: always()
+        run: docker rm -f mlops-api-test || true
+
+  push-image:
+    runs-on: ubuntu-latest
+    needs: build-and-smoke-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tag
+        id: vars
+        run: echo "sha_tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.sha_tag }}
+            ${{ env.IMAGE_NAME }}:latest
+
+  deployment-report:
+    runs-on: ubuntu-latest
+    needs: push-image
+    if: always()
+
+    steps:
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## CD Summary"
+            echo "- Event: ${{ github.event_name }}"
+            echo "- Ref: ${{ github.ref }}"
+            echo "- Build and smoke test: ${{ needs.build-and-smoke-test.result }}"
+            echo "- Push image: ${{ needs.push-image.result }}"
+            echo "- Image: ${{ env.IMAGE_NAME }}"
+            echo "- Commit: ${{ github.sha }}"
+          } >> $GITHUB_STEP_SUMMARY

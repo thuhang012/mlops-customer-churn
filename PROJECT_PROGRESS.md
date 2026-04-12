@@ -41,7 +41,7 @@
   - pyproject.toml (Ruff and pytest config)
 - Minimum smoke tests added:
   - tests/test_api.py: GET /health returns 200
-  - tests/test_data.py: dummy test
+  - tests/test_data.py: checks presence/columns of data/raw/netflix_large.csv (dataset-dependent, not a dummy test)
   - tests/test_model.py: dummy test
 - CD scaffold created:
   - .github/workflows/cd.yml

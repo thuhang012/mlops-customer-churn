@@ -27,7 +27,7 @@ def predict(data: CustomerInput) -> PredictionOutput:
     try:
         # raw_df = pd.DataFrame([data.dict()])  #  Pydantic v1
         raw_df = pd.DataFrame([data.model_dump()])
-        
+
         validated_df, _ = clean_raw_dataframe(raw_df)
         feature_source_df, _ = prepare_feature_inputs(validated_df)
 

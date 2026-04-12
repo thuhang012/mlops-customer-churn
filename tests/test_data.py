@@ -15,10 +15,7 @@ REQUIRED_COLUMNS = {
 }
 
 
-@pytest.mark.skipif(
-    not DATA_PATH.exists(),
-    reason="Dataset not available in CI/development environment"
-)
+@pytest.mark.skipif(not DATA_PATH.exists(), reason="Dataset not available in CI/development environment")
 def test_raw_data_exists_and_has_required_columns():
     df = pd.read_csv(DATA_PATH)
     assert len(df) > 0, "Dataset is empty"

@@ -33,7 +33,7 @@ sample_payload = {
     "recommendation_source": "Homepage",
     "days_since_last_watch": 2,
     "avg_weekly_watch_time": 300,
-    "content_diversity_score": 0.75
+    "content_diversity_score": 0.75,
 }
 
 
@@ -70,6 +70,7 @@ def test_predict_success():
         # Any other status code is unexpected
         assert False, f"Unexpected status code: {response.status_code}"
 
+
 # case thiếu field
 def test_predict_missing_field():
     bad_payload = sample_payload.copy()
@@ -78,6 +79,7 @@ def test_predict_missing_field():
     response = client.post("/predict", json=bad_payload)
 
     assert response.status_code == 422
+
 
 # sai dtype
 def test_predict_invalid_type():

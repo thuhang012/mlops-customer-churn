@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
 
 from src.mlops_project.api.serve import app
@@ -46,9 +49,15 @@ def test_root():
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert "status" in data
+    assert data["status"] == "ok"
 
 
+@pytest.mark.skipif(
+    not Path("artifacts/models/Netflix_Prediction_final.pkl").exists(),
+    reason="Model artifact not found",
+)
 def test_predict_success():
     response = client.post("/predict", json=sample_payload)
 

@@ -1,0 +1,14 @@
+project: Netflix_Prediction
+best_model_overall: CatBoost
+selection_metric: test_pr_auc
+metrics:
+  cv_pr_auc: 0.23692242249695633
+  test_pr_auc: 0.2443810530423357
+hyperparameters:
+  iterations: 436
+  depth: 9
+  learning_rate: 0.012553386061217049
+  l2_leaf_reg: 6.513097185041718
+  subsample: 0.6750746733431446
+  random_strength: 2.760553451583119
+  scale_pos_weight: 7.204809399002687

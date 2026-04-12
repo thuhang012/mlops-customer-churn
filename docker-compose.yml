@@ -1,11 +1,60 @@
-version: "3.9"
-
 services:
+  # Service 1: API Churn Prediction (FastAPI + Uvicorn)
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: mlops-api
+    build: .
+    container_name: churn_api_container
     ports:
       - "8000:8000"
-    restart: unless-stopped
+    networks:
+      mlops_bridge:
+        aliases:
+          - churn_api
+    volumes:
+      # Hot-reload code cho M3 phát triển
+      - ./src:/home/user/app/src
+      # Mount data và artifacts ra host để file .pkl tồn tại vĩnh viễn
+      - ./data:/home/user/app/data
+      - ./artifacts:/home/user/app/artifacts
+      - ./monitoring:/home/user/app/monitoring
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PYTHONPATH=/home/user/app/src
+      - DAGSHUB_USERNAME=${DAGSHUB_USER:-}
+      - DAGSHUB_TOKEN=${DAGSHUB_TOKEN:-}
+    depends_on:
+      mlflow:
+        condition: service_healthy
+
+  # Service 2: MLflow Tracking Server cho M2
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.12.1
+    container_name: mlflow_tracker
+    hostname: mlflow
+    ports:
+      - "5555:5000"
+    networks:
+      mlops_bridge:
+        aliases:
+          - mlflow
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlflow/mlflow.db --serve-artifacts --artifacts-destination /home/user/app/artifacts/mlruns
+    volumes:
+      # Persistent Volume: dữ liệu MLflow tồn tại qua các lần restart
+      - mlflow_db_v3:/mlflow
+      # Mount chung thư mục artifacts để giải quyết lỗi Permission
+      - ./artifacts:/home/user/app/artifacts
+    healthcheck:
+      # Kiểm tra MLflow thực sự sẵn sàng nhận request (không chỉ process đang chạy)
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+# Mạng nội bộ cô lập các Service
+networks:
+  mlops_bridge:
+    driver: bridge
+
+# Kho chứa data vĩnh viễn cho MLflow
+volumes:
+  mlflow_db_v3:

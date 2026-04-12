@@ -8,8 +8,14 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from src.mlops_project.data.load_data import load_raw_data
-from src.mlops_project.data.validate_data import TARGET_COLUMN, clean_raw_dataframe
-from src.mlops_project.features.build_features import build_preprocessor, prepare_feature_inputs
+from src.mlops_project.data.validate_data import (
+    TARGET_COLUMN,
+    clean_raw_dataframe,
+)
+from src.mlops_project.features.build_features import (
+    build_preprocessor,
+    prepare_feature_inputs,
+)
 
 
 RAW_DATA_PATH = Path("data/raw/netflix_large.csv")
@@ -69,7 +75,11 @@ def run_preprocessing(
 
     transformed = preprocessor.transform(feature_df)
     feature_names = preprocessor.get_feature_names_out()
-    cleaned_df = pd.DataFrame(transformed, columns=feature_names, index=feature_df.index)
+    cleaned_df = pd.DataFrame(
+        transformed,
+        columns=feature_names,
+        index=feature_df.index,
+    )
 
     if target_series is not None:
         cleaned_df[TARGET_COLUMN] = target_series.values
@@ -95,7 +105,9 @@ def run_preprocessing(
             "split_config": {
                 "test_size": TEST_SIZE,
                 "random_state": RANDOM_STATE,
-                "stratify": bool(target_series is not None and target_series.nunique() > 1),
+                "stratify": bool(
+                    target_series is not None and target_series.nunique() > 1
+                ),
             },
             "train_indices": x_train.index.tolist(),
             "test_indices": x_test.index.tolist(),
@@ -114,9 +126,21 @@ def run_preprocessing(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Preprocess Netflix dataset for churn modeling.")
-    parser.add_argument("--input", type=Path, default=RAW_DATA_PATH, help="Path to raw input CSV.")
-    parser.add_argument("--output", type=Path, default=CLEANED_DATA_PATH, help="Path to output CSV.")
+    parser = argparse.ArgumentParser(
+        description="Preprocess Netflix dataset for churn modeling."
+    )
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=RAW_DATA_PATH,
+        help="Path to raw input CSV.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=CLEANED_DATA_PATH,
+        help="Path to output CSV.",
+    )
     parser.add_argument(
         "--preprocessor",
         type=Path,

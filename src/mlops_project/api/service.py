@@ -12,6 +12,7 @@ model = None
 preprocessor = None
 feature_columns = None
 
+
 def _load_artifacts():
     global model, preprocessor, feature_columns
     if model is None or preprocessor is None:
@@ -23,18 +24,17 @@ def _load_artifacts():
         except Exception as e:
             raise RuntimeError(f"Error loading model or preprocessor: {str(e)}")
 
+
 def artifacts_status() -> dict:
     try:
         _load_artifacts()
         return {
             "model_loaded": model is not None,
-            "preprocessor_loaded": preprocessor is not None
+            "preprocessor_loaded": preprocessor is not None,
         }
     except Exception:
-        return {
-            "model_loaded": False,
-            "preprocessor_loaded": False
-        }
+        return {"model_loaded": False, "preprocessor_loaded": False}
+
 
 def predict(data: CustomerInput) -> PredictionOutput:
     _load_artifacts()
@@ -58,12 +58,12 @@ def predict(data: CustomerInput) -> PredictionOutput:
         churn_label = int(churn_prob > 0.5)
 
         return PredictionOutput(
-            churn_probability=float(churn_prob),
-            prediction=churn_label
+            churn_probability=float(churn_prob), prediction=churn_label
         )
 
     except Exception as e:
         raise ValueError(f"Prediction failed: {str(e)}")
+
 
 def batch_predict(data_list: list[CustomerInput]) -> list[PredictionOutput]:
     _load_artifacts()
@@ -83,10 +83,7 @@ def batch_predict(data_list: list[CustomerInput]) -> list[PredictionOutput]:
         labels = (proba > 0.5).astype(int)
 
         results = [
-            PredictionOutput(
-                churn_probability=float(prob),
-                prediction=int(label)
-            )
+            PredictionOutput(churn_probability=float(prob), prediction=int(label))
             for prob, label in zip(proba, labels)
         ]
 

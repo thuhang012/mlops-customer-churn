@@ -1,0 +1,182 @@
+name: Continuous Training Pipeline
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'data/**'
+      - 'src/mlops_project/**'
+      - 'dvc.yaml'
+      - 'dvc.lock'
+      - 'scripts/**'
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly: Monday 2 AM
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Trigger reason'
+        required: true
+        type: choice
+        options: [drift-detected, manual-retrain, scheduled, data-updated]
+
+env:
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  # ============================================================================
+  # JOB 1: Data Processing & Validation
+  # ============================================================================
+  data-processing:
+    runs-on: ubuntu-latest
+    outputs:
+      data-hash: ${{ steps.dvc-status.outputs.data_hash }}
+      validation-passed: ${{ steps.validate.outputs.passed }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Validate data
+        id: validate
+        run: python scripts/validation/validate_data.py data/raw/netflix_large.csv
+      
+      - name: Get data hash
+        id: dvc-status
+        run: echo "data_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      
+      - name: Upload processed data
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-data
+          path: data/processed/
+          retention-days: 30
+  
+  # ============================================================================
+  # JOB 2: Model Training
+  # ============================================================================
+  model-training:
+    runs-on: ubuntu-latest
+    needs: data-processing
+    if: needs.data-processing.outputs.validation-passed == 'true'
+    
+    outputs:
+      model-id: ${{ steps.train.outputs.model_id }}
+      f1-score: ${{ steps.train.outputs.f1_score }}
+      roc-auc: ${{ steps.train.outputs.roc_auc }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Train model
+        id: train
+        run: python scripts/training/train_model.py artifacts
+      
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: artifacts/models/
+          retention-days: 90
+  
+  # ============================================================================
+  # JOB 3: Model Evaluation & Quality Gate
+  # ============================================================================
+  model-evaluation:
+    runs-on: ubuntu-latest
+    needs: [data-processing, model-training]
+    
+    outputs:
+      quality-passed: ${{ steps.quality-gate.outputs.passed }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Download model artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          merge-multiple: true
+      
+      - name: Quality gate check
+        id: quality-gate
+        run: python scripts/validation/quality_gate.py artifacts/metrics/metrics.json artifacts/baseline/metrics.json 0.95
+        continue-on-error: true
+      
+      - name: Upload evaluation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-report
+          path: artifacts/metrics/
+          retention-days: 365
+  
+  # ============================================================================
+  # JOB 4: Model Registration
+  # ============================================================================
+  model-registration:
+    runs-on: ubuntu-latest
+    needs: [model-training, model-evaluation]
+    if: |
+      needs.model-evaluation.outputs.quality-passed == 'true' &&
+      github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install scikit-learn
+      
+      - name: Download model
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: ./artifacts/
+      
+      - name: Register model
+        run: python scripts/training/register_model.py artifacts/metrics/metrics.json artifacts/baseline/metrics.json
+      
+      - name: Pipeline summary
+        run: |
+          echo "## ✅ CT Pipeline Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Data Processing**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Model Training**: ✅ Completed (ID: ${{ needs.model-training.outputs.model-id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Quality Gate**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "  - F1 Score: ${{ needs.model-training.outputs.f1-score }}" >> $GITHUB_STEP_SUMMARY
+          echo "  - ROC AUC: ${{ needs.model-training.outputs.roc-auc }}" >> $GITHUB_STEP_SUMMARY

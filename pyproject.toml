@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlops-project"
+version = "0.1.0"
+description = "MLOps pipeline for churn prediction"
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 127
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E402"]
+exclude = [".git", "__pycache__", ".venv", ".pytest_cache", "mlruns", "artifacts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v"

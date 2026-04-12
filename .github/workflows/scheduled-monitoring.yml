@@ -1,0 +1,90 @@
+name: Monitoring & Auto-Retrain
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  monitoring:
+    runs-on: ubuntu-latest
+    outputs:
+      drift-detected: ${{ steps.check.outputs.drift_detected }}
+      degradation-detected: ${{ steps.check.outputs.degradation_detected }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Run monitoring checks
+        id: check
+        run: python scripts/monitoring/checks.py
+      
+      - name: Upload monitoring results
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-results
+          path: reports/monitoring/
+          retention-days: 30
+  
+  # Auto-trigger retraining if issues detected
+  auto-retrain:
+    runs-on: ubuntu-latest
+    needs: monitoring
+    if: |
+      needs.monitoring.outputs.drift-detected == 'true' ||
+      needs.monitoring.outputs.degradation-detected == 'true'
+    
+    steps:
+      - name: Trigger CT Pipeline
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let reason = 'drift-detected';
+            if ('${{ needs.monitoring.outputs.degradation-detected }}' === 'true') {
+              reason = 'performance-degradation';
+            }
+            
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ct.yml',
+              ref: 'main',
+              inputs: {
+                reason: reason
+              }
+            });
+            
+            console.log(`✅ Triggered CT Pipeline (reason: ${reason})`);
+  
+  report:
+    runs-on: ubuntu-latest
+    needs: [monitoring, auto-retrain]
+    if: always()
+    
+    steps:
+      - name: Download results
+        uses: actions/download-artifact@v4
+        with:
+          name: monitoring-results
+          path: ./
+      
+      - name: Summary
+        run: |
+          echo "## 🔍 Monitoring Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Drift Detected: ${{ needs.monitoring.outputs.drift-detected }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Degradation: ${{ needs.monitoring.outputs.degradation-detected }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Auto-Retrain: ${{ needs.auto-retrain.result }}" >> $GITHUB_STEP_SUMMARY

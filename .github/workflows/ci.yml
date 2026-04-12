@@ -27,7 +27,7 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Lint with Ruff (critical errors only)
-        run: ruff check src tests --select E,F,W
+        run: python -m ruff check src tests --select E,F,W
 
       - name: Run tests
         run: python -m pytest tests/

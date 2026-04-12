@@ -148,18 +148,18 @@ Requirements:
   2. Setup Python.
   3. Install core dependencies: `pip install -r requirements.txt`.
   4. Install dev dependencies: `pip install -r requirements-dev.txt`.
-  5. Lint: Execute `flake8` using a configuration file. Fail only on critical errors.
+  5. Lint: Execute `ruff check` using the repository configuration in `pyproject.toml`. Fail only on critical errors.
   6. Test: Execute `python -m pytest tests/`. Using `python -m` is mandatory to resolve `src/` pathing issues automatically.
 
 # TASK 2: DEVELOPMENT DEPENDENCIES
 File: `requirements-dev.txt`
 Requirements:
-- Include `flake8`, `pytest`, `pytest-cov`, and `httpx` (required for FastAPI `TestClient`).
+- Include `ruff`, `pytest`, `pytest-cov`, and `httpx` (required for FastAPI `TestClient`).
 
 # TASK 3: LINTER CONFIGURATION
-File: `.flake8`
+File: `pyproject.toml`
 Requirements:
-- Set `max-line-length` to 127.
+- Set Ruff `line-length` to 127.
 - Ignore `E203` (whitespace before ':') and `W503` (line break before binary operator) to prevent conflicts with modern formatters like Black/Ruff.
 - Exclude `.git`, `__pycache__`, `.venv`.
 

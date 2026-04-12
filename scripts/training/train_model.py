@@ -4,8 +4,10 @@ Trains model with mock data (ready for real training)
 """
 import joblib
 import json
+import os
 import sys
 from pathlib import Path
+from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
@@ -32,6 +34,7 @@ def train_model(output_dir: str = "artifacts") -> dict:
         metrics_dir.mkdir(parents=True, exist_ok=True)
         
         print("📊 Training model...")
+        model_id = f"model-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
         
         # Generate mock data for demonstration
         # TODO: Replace with real data loading
@@ -77,7 +80,9 @@ def train_model(output_dir: str = "artifacts") -> dict:
         print(f"   - F1 Score: {f1:.4f}")
         print(f"   - ROC AUC: {roc_auc:.4f}")
         
+        _write_outputs(model_id, f1, roc_auc)
         return {
+            'model_id': model_id,
             'f1_score': f1,
             'roc_auc': roc_auc,
             'model_path': str(model_path)
@@ -85,20 +90,20 @@ def train_model(output_dir: str = "artifacts") -> dict:
         
     except Exception as e:
         print(f"❌ ERROR: Model training failed: {e}")
+        _write_outputs("", 0, 0)
         sys.exit(1)
+
+
+def _write_outputs(model_id: str, f1_score_value: float, roc_auc_value: float) -> None:
+    output_file = os.getenv("GITHUB_OUTPUT")
+    if output_file:
+        with open(output_file, "a") as f:
+            f.write(f"model_id={model_id}\n")
+            f.write(f"f1_score={f1_score_value}\n")
+            f.write(f"roc_auc={roc_auc_value}\n")
 
 
 if __name__ == "__main__":
     output_dir = sys.argv[1] if len(sys.argv) > 1 else "artifacts"
     results = train_model(output_dir)
-    
-    # Output for GitHub Actions
-    import subprocess
-    subprocess.run([
-        "bash", "-c",
-        f"echo 'f1_score={results[\"f1_score\"]}' >> $GITHUB_OUTPUT"
-    ])
-    subprocess.run([
-        "bash", "-c",
-        f"echo 'roc_auc={results[\"roc_auc\"]}' >> $GITHUB_OUTPUT"
-    ])
+

@@ -1,8 +1,10 @@
+# CI workflow for the M5/CICD workstream.
+# Purpose: run linting and tests on every branch push, and on pull requests to main.
 name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["**"]
   pull_request:
     branches: ["main"]
 

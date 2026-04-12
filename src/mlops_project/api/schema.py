@@ -16,7 +16,7 @@ class CustomerInput(BaseModel):
     content_type: str
     genre: str
     language: str
-    release_year: int = Field(..., ge=1900, le=2100) 
+    release_year: int = Field(..., ge=1900, le=2100)
     device_type: str
     watch_time_minutes: int = Field(..., ge=0)
     session_count: int = Field(..., ge=0)

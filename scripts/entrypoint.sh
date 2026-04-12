@@ -23,17 +23,17 @@ dvc remote modify origin --local user "$DAGSHUB_USERNAME"
 dvc remote modify origin --local password "$DAGSHUB_TOKEN"
 
 echo "[Boot: DVC] Synchronizing Data..."
-# Step 2: Data Sync using DVC Pull
-if ! dvc pull -r origin -v -f; then
-    echo "❌ FATAL ERROR: Failed to pull data from DVC remote 'origin'."
-    exit 1
+# Step 2: Data Sync using DVC Pull (optional if artifacts already exist)
+if [ ! -f "$MODEL_PATH" ]; then
+    echo "⚠️  Model not found locally. Attempting to pull from DVC remote..."
+    if dvc pull -r origin -v -f; then
+        echo "✅ DVC Sync successful from remote."
+    else
+        echo "⚠️  Warning: DVC pull failed or data missing on remote. Continuing with local artifacts if available..."
+    fi
+else
+    echo "✅ Model artifact found locally. Skipping DVC pull."
 fi
-
-if [ ! -f "$DATASET_PATH" ]; then
-    echo "❌ FATAL ERROR: Dataset not found at $DATASET_PATH after pulling."
-    exit 1
-fi
-echo "✅ DVC Sync successful. Clean remote dataset located."
 
 echo "[Boot: MLflow] Connecting to Tracking URI: ${MLFLOW_TRACKING_URI:-Unknown}"
 

@@ -55,8 +55,7 @@ def test_health_check():
 
 
 @pytest.mark.skipif(
-    not Path("artifacts/models/Netflix_Prediction_final.pkl").exists()
-    or Path("artifacts/models/.dummy").exists(),
+    not Path("artifacts/models/Netflix_Prediction_final.pkl").exists() or Path("artifacts/models/.dummy").exists(),
     reason="Model artifact not found or is dummy (use real model for testing)",
 )
 def test_predict_success():

@@ -19,15 +19,21 @@ print(f"✅ Created dummy model: {model_path}")
 
 # Create dummy preprocessor
 feature_columns = [
-    "age_group", "gender", "country", "subscription_plan", "monthly_fee",
-    "device_type", "watch_time_minutes", "session_count",
-    "completion_percentage", "rating", "days_since_last_watch"
+    "age_group",
+    "gender",
+    "country",
+    "subscription_plan",
+    "monthly_fee",
+    "device_type",
+    "watch_time_minutes",
+    "session_count",
+    "completion_percentage",
+    "rating",
+    "days_since_last_watch",
 ]
 
 dummy_preprocessor = {
-    "pipeline": ColumnTransformer([
-        ("scaler", StandardScaler(), feature_columns)
-    ]),
+    "pipeline": ColumnTransformer([("scaler", StandardScaler(), feature_columns)]),
     "feature_columns": feature_columns,
 }
 

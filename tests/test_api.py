@@ -36,7 +36,7 @@ sample_payload = {
     "recommendation_source": "Homepage",
     "days_since_last_watch": 2,
     "avg_weekly_watch_time": 300,
-    "content_diversity_score": 0.75
+    "content_diversity_score": 0.75,
 }
 
 
@@ -55,8 +55,9 @@ def test_health_check():
 
 
 @pytest.mark.skipif(
-    not Path("artifacts/models/Netflix_Prediction_final.pkl").exists(),
-    reason="Model artifact not found",
+    not Path("artifacts/models/Netflix_Prediction_final.pkl").exists()
+    or Path("artifacts/models/.dummy").exists(),
+    reason="Model artifact not found or is dummy (use real model for testing)",
 )
 def test_predict_success():
     response = client.post("/predict", json=sample_payload)
@@ -68,6 +69,7 @@ def test_predict_success():
     assert isinstance(data["churn_probability"], float)
     assert 0.0 <= data["churn_probability"] <= 1.0
 
+
 # case thiếu field
 def test_predict_missing_field():
     bad_payload = sample_payload.copy()
@@ -76,6 +78,7 @@ def test_predict_missing_field():
     response = client.post("/predict", json=bad_payload)
 
     assert response.status_code == 422
+
 
 # sai dtype
 def test_predict_invalid_type():

@@ -90,14 +90,18 @@ def main(args):
 
     # 3. Khởi tạo mô hình
     model = get_model_instance(best_algo, params)
+    SELECTED_THRESHOLD = float(config.get("threshold", 0.5))
+    # SELECTED_THRESHOLD = 0.5
 
     with mlflow.start_run(run_name=f"final_training_{best_algo}"):
         logger.info(f"Training {best_algo} on custom split...")
         model.fit(X_train, y_train)
 
         # Dự đoán để tính metrics
-        y_pred = model.predict(X_test)
+        # y_pred = model.predict(X_test)
+        # y_proba = model.predict_proba(X_test)[:, 1]
         y_proba = model.predict_proba(X_test)[:, 1]
+        y_pred = (y_proba >= SELECTED_THRESHOLD).astype(int)
 
         metrics = {
             "accuracy": float(accuracy_score(y_test, y_pred)),
@@ -113,6 +117,7 @@ def main(args):
         # Log tham số và kết quả lên MLflow
         mlflow.log_params(params)
         mlflow.log_metrics(metrics)
+        mlflow.log_param("selected_threshold", SELECTED_THRESHOLD)
 
         # 4. Log Model dựa trên thuật toán
         if best_algo == 'LightGBM':
@@ -136,13 +141,14 @@ def main(args):
         client.transition_model_version_stage(name=model_name, version=mv.version, stage="Staging")
 
         # 6. Lưu file .pkl cục bộ
-        SELECTED_THRESHOLD = 0.5
+
         save_path = f"{args.models_dir}/{model_name}_final.pkl"
         # joblib.dump(model, save_path)
         joblib.dump(
             {
                 "model": model,
                 "threshold": SELECTED_THRESHOLD,
+                "model_name": best_algo,
             },
             save_path,
         )

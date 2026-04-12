@@ -1,0 +1,20 @@
+project: Netflix_Prediction
+model_name: RandomForest
+selection_metric: test_pr_auc
+threshold: 0.5
+metrics:
+  cv_pr_auc: 0.23876274902426903
+  test_pr_auc: 0.24046936710440894
+  accuracy: 0.6305
+  precision: 0.2544187204381379
+  recall: 0.5934959349593496
+  f1_score: 0.35615960968809895
+  roc_auc: 0.6395197210523169
+  log_loss: 0.6330922565699837
+  predicted_positive_rate: 0.4017
+hyperparameters:
+  n_estimators: 207
+  max_depth: 9
+  min_samples_split: 7
+  min_samples_leaf: 5
+  criterion: entropy

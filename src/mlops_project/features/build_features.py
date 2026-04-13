@@ -113,9 +113,7 @@ def prepare_feature_inputs(df: pd.DataFrame) -> tuple[pd.DataFrame, FeatureBuild
         work_df = work_df.drop(columns=leakage_cols)
 
     high_cardinality_cols = [
-        col
-        for col in HIGH_CARDINALITY_DROP_COLUMNS
-        if col in work_df.columns
+        col for col in HIGH_CARDINALITY_DROP_COLUMNS if col in work_df.columns
     ]
     if high_cardinality_cols:
         work_df = work_df.drop(columns=high_cardinality_cols)
@@ -133,9 +131,7 @@ def prepare_feature_inputs(df: pd.DataFrame) -> tuple[pd.DataFrame, FeatureBuild
 def build_preprocessor(
     feature_df: pd.DataFrame,
 ) -> tuple[ColumnTransformer, list[str], list[str]]:
-    numeric_cols = feature_df.select_dtypes(
-        include=["number", "bool"]
-    ).columns.tolist()
+    numeric_cols = feature_df.select_dtypes(include=["number", "bool"]).columns.tolist()
     categorical_cols = feature_df.select_dtypes(
         exclude=["number", "bool"]
     ).columns.tolist()

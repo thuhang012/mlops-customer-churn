@@ -5,8 +5,16 @@ name: CI
 on:
   push:
     branches: ["**"]
+    paths-ignore:
+      - '**/*.md'
+      - 'notebooks/**'
+      - 'reports/**'
   pull_request:
     branches: ["main"]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   changes:
@@ -58,6 +66,7 @@ jobs:
     needs: [changes, lint-and-test]
     if: |
       needs.changes.outputs.data_related == 'true' &&
+      github.ref != 'refs/heads/main' &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
 
     steps:

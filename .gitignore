@@ -57,3 +57,10 @@ mlflowdb/
 monitoring/inference/*
 !monitoring/inference/.gitkeep
 artifacts/mlruns/
+
+# =========================
+# INTERNAL DOCUMENTATION
+# =========================
+# Keep canonical docs (README*.md), ignore internal working notes.
+PROJECT_PROGRESS.md
+LOCAL_TESTING.md

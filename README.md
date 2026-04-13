@@ -49,9 +49,8 @@ MLOpsProject/
 ├── dvc.yaml
 ├── pyproject.toml
 ├── requirements.txt
-├── requirements-dev.txt
 ├── README_DVC.md
-└── PROJECT_PROGRESS.md
+└── README_M4_DOCKER.md
 ```
 
 ---
@@ -71,7 +70,6 @@ python -m venv .venv
 
 ```powershell
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
 ```
 
 ### 3.3 Pull data from DVC remote
@@ -214,7 +212,7 @@ Important:
 - M5: CI/CD quality gates and automation
 - M6: monitoring and drift reporting
 
-For live status and sprint log, see PROJECT_PROGRESS.md.
+Sprint progress notes are maintained as local working notes and are not part of the shared repository documentation.
 
 ---
 
@@ -238,6 +236,6 @@ For live status and sprint log, see PROJECT_PROGRESS.md.
 ## 12) Useful Files
 
 - README_DVC.md: data setup and DVC usage
-- PROJECT_PROGRESS.md: sprint progress and CI/CD status tracker
+- README_DVC.md: DVC setup and data versioning guide
 - .github/workflows/ci.yml: CI checks
 - .github/workflows/cd.yml: CD scaffold

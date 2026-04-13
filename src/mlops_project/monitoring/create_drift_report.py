@@ -171,8 +171,13 @@ def create_html_report(
     metrics: list[dict[str, Any]],
     output_path: Path,
 ) -> None:
+    drifted_metrics = sorted(
+        [metric for metric in metrics if metric["alert"]],
+        key=lambda item: item["severity"],
+        reverse=True,
+    )
     plots_html = []
-    for metric in metrics[:10]:
+    for metric in drifted_metrics:
         if metric["feature_type"] == "numeric":
             img = build_numeric_plot(
                 reference[metric["feature"]], current[metric["feature"]], metric["feature"], metric["value"]
@@ -214,6 +219,7 @@ def create_html_report(
     fallback_note = "" if all(metric.get("p_value") is not None for metric in metrics) else "<li>Some statistical tests used fallback approximations because SciPy is not installed.</li>"
 
     severity_plot = build_severity_plot(metrics)
+    drift_chart_title = f"All Drifted Charts ({len(drifted_metrics)})"
 
     report_html = f"""
     <!DOCTYPE html>
@@ -230,10 +236,10 @@ def create_html_report(
             .section {{ margin-bottom: 40px; }}
             .summary-card {{ background: #f8f9fa; border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 24px; }}
             .chart-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }}
-            .chart-card {{ border: 1px solid #ddd; padding: 12px; border-radius: 8px; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }}
+            .chart-card {{ padding: 0; }}
             .chart-card h3 {{ margin: 0 0 8px; font-size: 1rem; color: #2c3e50; }}
             .chart-card p {{ margin: 0 0 12px; font-size: 0.95rem; color: #333; }}
-            img {{ width: 100%; max-width: 900px; border: 1px solid #ddd; padding: 8px; background: white; }}
+            img {{ width: 100%; max-width: 900px; border: 0; padding: 0; background: transparent; }}
             .badge {{ display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.9rem; }}
             .badge-ok {{ background: #27ae60; color: white; }}
             .badge-drift {{ background: #c0392b; color: white; }}
@@ -266,7 +272,7 @@ def create_html_report(
             </table>
         </div>
         <div class="section">
-            <h2>Top Drift Visualizations</h2>
+            <h2>{drift_chart_title}</h2>
             <div class="chart-grid">
                 {''.join(plots_html)}
             </div>

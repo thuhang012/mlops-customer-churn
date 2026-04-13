@@ -9,6 +9,28 @@ on:
     branches: ["main"]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      data_related: ${{ steps.filter.outputs.data_related }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect data-related changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            data_related:
+              - 'data/**'
+              - 'dvc.yaml'
+              - 'dvc.lock'
+              - 'scripts/validation/**'
+              - 'src/mlops_project/data/**'
+              - '.github/workflows/ci.yml'
+
   lint-and-test:
     runs-on: ubuntu-latest
 
@@ -22,14 +44,58 @@ jobs:
           python-version: "3.10"
           cache: "pip"
 
-      - name: Install core dependencies
+      - name: Install dependencies
         run: pip install -r requirements.txt
-
-      - name: Install dev dependencies
-        run: pip install -r requirements-dev.txt
 
       - name: Lint with Ruff (critical errors only)
         run: python -m ruff check src tests --select E,F
 
       - name: Run tests
         run: python -m pytest tests/
+
+  data-validation:
+    runs-on: ubuntu-latest
+    needs: [changes, lint-and-test]
+    if: |
+      needs.changes.outputs.data_related == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install validation dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ensure DagsHub secrets exist
+        run: |
+          if [ -z "${{ secrets.DAGSHUB_TOKEN }}" ] || { [ -z "${{ secrets.DAGSHUB_USERNAME }}" ] && [ -z "${{ secrets.DAGSHUB_USER }}" ]; }; then
+            echo "DAGSHUB_TOKEN and one of DAGSHUB_USERNAME or DAGSHUB_USER are required for real-data CI"
+            exit 1
+          fi
+
+      - name: Pull real data with DVC
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME || secrets.DAGSHUB_USER }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          dvc remote modify --local origin auth basic
+          dvc remote modify --local origin user "$DAGSHUB_USERNAME"
+          dvc remote modify --local origin password "$DAGSHUB_TOKEN"
+          dvc pull data/raw/netflix_large.csv.dvc
+
+      - name: Verify pulled dataset
+        run: |
+          test -f data/raw/netflix_large.csv
+          echo "Real dataset is available"
+
+      - name: Validate real dataset
+        run: python scripts/validation/validate_data.py data/raw/netflix_large.csv

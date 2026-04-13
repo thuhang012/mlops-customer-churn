@@ -46,10 +46,39 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Ensure DagsHub secrets exist
+        run: |
+          if [ -z "${{ secrets.DAGSHUB_TOKEN }}" ] || { [ -z "${{ secrets.DAGSHUB_USERNAME }}" ] && [ -z "${{ secrets.DAGSHUB_USER }}" ]; }; then
+            echo "DAGSHUB_TOKEN and one of DAGSHUB_USERNAME or DAGSHUB_USER are required for real-data CT"
+            exit 1
+          fi
+
+      - name: Pull real data with DVC
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME || secrets.DAGSHUB_USER }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          dvc remote modify --local origin auth basic
+          dvc remote modify --local origin user "$DAGSHUB_USERNAME"
+          dvc remote modify --local origin password "$DAGSHUB_TOKEN"
+          dvc pull data/raw/netflix_large.csv.dvc
+
+      - name: Verify pulled dataset
+        run: |
+          test -f data/raw/netflix_large.csv
+          echo "Real dataset is available"
       
       - name: Validate data
         id: validate
         run: python scripts/validation/validate_data.py data/raw/netflix_large.csv
+
+      - name: Preprocess real dataset
+        run: |
+          python -m src.mlops_project.data.preprocess \
+            --input data/raw/netflix_large.csv \
+            --output data/processed/cleaned_data.csv \
+            --preprocessor artifacts/preprocessors/preprocessor.pkl
       
       - name: Get data hash
         id: dvc-status
@@ -59,7 +88,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: processed-data
-          path: data/processed/
+          path: |
+            data/processed/
+            artifacts/preprocessors/
           retention-days: 30
   
   # ============================================================================
@@ -90,7 +121,7 @@ jobs:
       
       - name: Train model
         id: train
-        run: python scripts/training/train_model.py artifacts
+        run: python scripts/training/train_model.py artifacts data/processed/cleaned_data.csv
       
       - name: Upload model artifacts
         uses: actions/upload-artifact@v4

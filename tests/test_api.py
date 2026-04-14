@@ -2,6 +2,7 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 from sklearn.utils.validation import check_is_fitted
 
@@ -11,6 +12,7 @@ from src.mlops_project.api.service import MODEL_PATH
 client = TestClient(app)
 
 RAW_DATA_PATH = Path("data/raw/netflix_large.csv")
+pytestmark = pytest.mark.fast
 
 
 def _load_real_payloads() -> list[dict]:

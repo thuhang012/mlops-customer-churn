@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 
 DATA_PATH = Path("data/raw/netflix_large.csv")
@@ -11,6 +12,8 @@ REQUIRED_COLUMNS = {
     "churn_status",
     "watch_time_minutes",
 }
+
+pytestmark = pytest.mark.fast
 
 
 def test_raw_data_exists_and_has_required_columns():

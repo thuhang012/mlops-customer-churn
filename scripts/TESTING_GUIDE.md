@@ -9,7 +9,7 @@ This guide explains how to run tests locally. All commands below assume you've a
 pip install -r requirements.txt
 
 # Run fast tests (CI equivalent)
-python -m pytest -m "not ct" tests/
+python -m pytest -m fast tests/
 
 # Run all tests including model quality (integration tests)
 python -m pytest tests/
@@ -26,7 +26,7 @@ These tests run in CI on every push and should be fast (<1 minute).
 python -m ruff check src tests --select E,F
 
 # Run fast tests only (excludes heavy integration tests)
-python -m pytest -m "not ct" tests/ -v
+python -m pytest -m fast tests/ -v
 ```
 
 **Expected Result:** 7 passed, 7 deselected (fast tests only)
@@ -85,7 +85,7 @@ pip install -r requirements.txt
 python -m ruff check src tests --select E,F
 
 # 3. Run fast tests
-python -m pytest -m "not ct" tests/ -v
+python -m pytest -m fast tests/ -v
 
 # Expected: all pass, quick execution (<1 min)
 ```
@@ -130,13 +130,13 @@ Tests are organized using pytest markers:
 
 | Marker | Purpose | Runs In |
 |--------|---------|---------|
+| `fast` | Fast unit tests and API/data checks | CI fast path |
 | `ct` | Continuous Training integration tests | CT workflow only |
-| `not ct` | Fast unit tests | CI fast path |
 
 ### Run by Marker
 ```powershell
 # Fast tests only
-python -m pytest -m "not ct" tests/
+python -m pytest -m fast tests/
 
 # Integration tests only
 python -m pytest -m ct tests/test_model_quality.py
@@ -213,7 +213,7 @@ docker compose down
 ### **Test CI locally**
 ```powershell
 python -m ruff check src tests --select E,F
-python -m pytest -m "not ct" tests/ -v
+python -m pytest -m fast tests/ -v
 ```
 
 ### **Test CD locally**

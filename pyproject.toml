@@ -22,5 +22,6 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v"
 markers = [
+	"fast: fast checks for CI and local feedback loops",
 	"ct: integration tests that require real artifacts, data, and model readiness",
 ]

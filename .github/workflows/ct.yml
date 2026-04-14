@@ -28,6 +28,7 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.11"
+  BASELINE_METRICS_PATH: artifacts/baseline/metrics.json
 
 jobs:
   prepare-data:
@@ -47,6 +48,22 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Restore baseline metrics cache
+        id: restore-baseline-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: artifacts/baseline
+          key: baseline-metrics-${{ github.ref_name }}
+          restore-keys: |
+            baseline-metrics-
+
+      - name: Ensure baseline metrics file exists
+        run: |
+          mkdir -p artifacts/baseline
+          if [ ! -f "${{ env.BASELINE_METRICS_PATH }}" ]; then
+            printf '{\n  "f1_score": 0.60,\n  "roc_auc": 0.65\n}\n' > "${{ env.BASELINE_METRICS_PATH }}"
+          fi
 
       - name: Ensure DagsHub secrets exist
         run: |
@@ -87,6 +104,7 @@ jobs:
           path: |
             data/processed/
             artifacts/preprocessors/
+            artifacts/baseline/
           retention-days: 30
 
   train-and-evaluate:
@@ -173,6 +191,12 @@ jobs:
 
       - name: Register baseline metrics
         run: python scripts/training/register_model.py artifacts/metrics/metrics.json artifacts/baseline/metrics.json
+
+      - name: Save baseline metrics cache
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/baseline
+          key: baseline-metrics-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Pipeline summary
         run: |

@@ -25,9 +25,7 @@ DEFAULT_THRESHOLD = 0.5
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Evaluate trained churn model and export reports."
-    )
+    parser = argparse.ArgumentParser(description="Evaluate trained churn model and export reports.")
     parser.add_argument(
         "--model",
         type=Path,
@@ -105,16 +103,10 @@ def validate_inputs(
 ) -> None:
     missing_columns = [c for c in [target_column, split_column] if c not in df.columns]
     if missing_columns:
-        raise ValueError(
-            f"Missing required columns in dataset: {missing_columns}. "
-            f"Available columns: {list(df.columns)}"
-        )
+        raise ValueError(f"Missing required columns in dataset: {missing_columns}. Available columns: {list(df.columns)}")
 
     if df[df[split_column] == test_label].empty:
-        raise ValueError(
-            f"No rows found with {split_column} == '{test_label}'. "
-            "Cannot evaluate on empty test set."
-        )
+        raise ValueError(f"No rows found with {split_column} == '{test_label}'. Cannot evaluate on empty test set.")
 
 
 def get_test_split(
@@ -128,13 +120,11 @@ def get_test_split(
     y_test = test_df[target_column]
     return x_test, y_test
 
+
 def extract_model_and_threshold(loaded_object, default_threshold: float) -> tuple[object, float]:
     if isinstance(loaded_object, dict):
         if "model" not in loaded_object:
-            raise ValueError(
-                "Loaded dict object does not contain 'model' key. "
-                f"Available keys: {list(loaded_object.keys())}"
-            )
+            raise ValueError(f"Loaded dict object does not contain 'model' key. Available keys: {list(loaded_object.keys())}")
 
         model = loaded_object["model"]
         threshold = float(loaded_object.get("threshold", default_threshold))
@@ -142,15 +132,14 @@ def extract_model_and_threshold(loaded_object, default_threshold: float) -> tupl
 
     return loaded_object, float(default_threshold)
 
+
 def predict_probabilities(model, x_test: pd.DataFrame) -> np.ndarray:
     if hasattr(model, "predict_proba"):
         y_proba = model.predict_proba(x_test)[:, 1]
         return np.asarray(y_proba, dtype=float)
 
-    raise ValueError(
-        "Loaded model does not support predict_proba. "
-        f"Model type: {type(model)}"
-    )
+    raise ValueError(f"Loaded model does not support predict_proba. Model type: {type(model)}")
+
 
 def compute_metrics(
     y_true: pd.Series,
@@ -302,17 +291,22 @@ def main() -> None:
     threshold_dir.mkdir(parents=True, exist_ok=True)
 
     final_metrics_path = reports_dir / "final_metrics.json"
+    artifact_metrics_dir = Path("artifacts/metrics")
+    artifact_metrics_dir.mkdir(parents=True, exist_ok=True)
+    artifact_metrics_path = artifact_metrics_dir / "metrics.json"
     threshold_metrics_path = threshold_dir / "threshold_metrics.csv"
     threshold_recall_priority_path = threshold_dir / "threshold_recall_priority.csv"
     best_threshold_path = threshold_dir / "best_threshold.json"
 
     save_json(final_metrics_payload, final_metrics_path)
+    save_json(final_metrics, artifact_metrics_path)
     threshold_df.to_csv(threshold_metrics_path, index=False)
     recall_priority_df.to_csv(threshold_recall_priority_path, index=False)
     save_json(best_threshold_payload, best_threshold_path)
 
     print("Evaluation completed successfully.")
     print(f"Saved: {final_metrics_path}")
+    print(f"Saved: {artifact_metrics_path}")
     print(f"Saved: {threshold_metrics_path}")
     print(f"Saved: {threshold_recall_priority_path}")
     print(f"Saved: {best_threshold_path}")

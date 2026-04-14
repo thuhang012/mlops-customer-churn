@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 
 DATA_PATH = Path("data/raw/netflix_large.csv")
@@ -14,8 +13,8 @@ REQUIRED_COLUMNS = {
 }
 
 
-@pytest.mark.skipif(not DATA_PATH.exists(), reason="Dataset not available in CI/development environment")
 def test_raw_data_exists_and_has_required_columns():
+    assert DATA_PATH.exists(), f"Real dataset not found: {DATA_PATH}"
     df = pd.read_csv(DATA_PATH)
     assert len(df) > 0, "Dataset is empty"
 

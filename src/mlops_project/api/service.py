@@ -57,9 +57,7 @@ def predict(data: CustomerInput) -> PredictionOutput:
         churn_prob = proba[0][1]
         churn_label = int(churn_prob > 0.5)
 
-        return PredictionOutput(
-            churn_probability=float(churn_prob), prediction=churn_label
-        )
+        return PredictionOutput(churn_probability=float(churn_prob), prediction=churn_label)
 
     except Exception as e:
         raise ValueError(f"Prediction failed: {str(e)}")
@@ -83,8 +81,7 @@ def batch_predict(data_list: list[CustomerInput]) -> list[PredictionOutput]:
         labels = (proba > 0.5).astype(int)
 
         results = [
-            PredictionOutput(churn_probability=float(prob), prediction=int(label))
-            for prob, label in zip(proba, labels)
+            PredictionOutput(churn_probability=float(prob), prediction=int(label)) for prob, label in zip(proba, labels)
         ]
 
         return results

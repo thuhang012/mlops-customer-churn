@@ -64,7 +64,7 @@ function Run-Lint {
 }
 
 function Run-Test {
-    Invoke-Checked 'pytest' { python -m pytest tests/ }
+    Invoke-Checked 'pytest' { python -m pytest -m "not ct" tests/ }
 }
 
 function Run-DvcPull {

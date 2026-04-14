@@ -9,8 +9,7 @@ scripts/
 ├── validation/          # Data & model validation
 │   ├── validate_data.py     # Check data quality
 │   └── quality_gate.py       # Quality gate checks
-├── training/            # Model training & registration
-│   ├── train_model.py        # Train model
+├── training/            # Model registration utilities
 │   └── register_model.py      # Register trained model
 └── monitoring/          # Production monitoring
     └── checks.py             # Drift & performance checks
@@ -37,16 +36,19 @@ python scripts/validation/validate_data.py data/raw/netflix_large.csv
 
 ### Model Training
 ```bash
-python scripts/training/train_model.py <output_dir>
+python src/mlops_project/models/train.py --config <config_path> --data <data_path> --models-dir <models_dir>
 ```
 
 **Example:**
 ```bash
-python scripts/training/train_model.py artifacts
+python src/mlops_project/models/train.py \
+  --config artifacts/models/best_model_config.yaml \
+  --data data/processed/cleaned_data.csv \
+  --models-dir artifacts/models
 ```
 
 **Outputs:**
-- `artifacts/models/model.pkl` - Trained model
+- `artifacts/models/Netflix_Prediction_final.pkl` - Trained model bundle
 - `artifacts/metrics/metrics.json` - Metrics (F1, ROC-AUC)
 - `$GITHUB_OUTPUT` - Variables for GitHub Actions
 
@@ -69,6 +71,28 @@ python scripts/validation/quality_gate.py \
 - Current F1 ≥ 95% of baseline
 - Current ROC-AUC ≥ 95% of baseline
 - Exit code 0 if pass, 1 if fail
+
+---
+
+### Model Artifact Check
+```bash
+python scripts/validation/check_model_artifact.py
+```
+
+**Example:**
+```bash
+python scripts/validation/check_model_artifact.py \
+  --model artifacts/models/Netflix_Prediction_final.pkl \
+  --preprocessor artifacts/preprocessors/preprocessor.pkl \
+  --data data/raw/netflix_large.csv
+```
+
+**Checks:**
+- Model artifact exists and can be loaded
+- Model is fitted
+- Preprocessor artifact exists and can be loaded
+- Real raw data can be cleaned, featurized, transformed, and scored
+- Exits 0 if inference works, 1 if any real artifact step fails
 
 ---
 
@@ -148,7 +172,10 @@ Run scripts locally to test before committing:
 
 ```bash
 # Run with verbose output
-python scripts/training/train_model.py artifacts
+python src/mlops_project/models/train.py \
+  --config artifacts/models/best_model_config.yaml \
+  --data data/processed/cleaned_data.csv \
+  --models-dir artifacts/models
 
 # Check outputs
 cat artifacts/metrics/metrics.json

@@ -10,16 +10,15 @@ on:
       - 'src/mlops_project/models/**'
       - 'dvc.yaml'
       - 'dvc.lock'
-      - 'scripts/training/**'
       - 'scripts/validation/**'
       - '.github/workflows/ct.yml'
   schedule:
-    - cron: '0 2 * * 1'  # Weekly: Monday 2 AM
+    - cron: '0 2 * * 1'
   workflow_dispatch:
     inputs:
       reason:
         description: 'Trigger reason'
-        required: true
+        required: false
         type: choice
         options: [drift-detected, performance-degradation, manual-retrain, scheduled, data-updated]
 
@@ -28,28 +27,22 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYTHON_VERSION: "3.10"
+  PYTHON_VERSION: "3.11"
 
 jobs:
-  # ============================================================================
-  # JOB 1: Data Processing & Validation
-  # ============================================================================
-  data-processing:
+  prepare-data:
     runs-on: ubuntu-latest
-    outputs:
-      data-hash: ${{ steps.dvc-status.outputs.data_hash }}
-      validation-passed: ${{ steps.validate.outputs.passed }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           pip install --upgrade pip
@@ -76,9 +69,8 @@ jobs:
         run: |
           test -f data/raw/netflix_large.csv
           echo "Real dataset is available"
-      
+
       - name: Validate data
-        id: validate
         run: python scripts/validation/validate_data.py data/raw/netflix_large.csv
 
       - name: Preprocess real dataset
@@ -87,11 +79,7 @@ jobs:
             --input data/raw/netflix_large.csv \
             --output data/processed/cleaned_data.csv \
             --preprocessor artifacts/preprocessors/preprocessor.pkl
-      
-      - name: Get data hash
-        id: dvc-status
-        run: echo "data_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      
+
       - name: Upload processed data
         uses: actions/upload-artifact@v4
         with:
@@ -100,181 +88,140 @@ jobs:
             data/processed/
             artifacts/preprocessors/
           retention-days: 30
-  
-  # ============================================================================
-  # JOB 2: Model Training
-  # ============================================================================
-  model-training:
+
+  train-and-evaluate:
     runs-on: ubuntu-latest
-    needs: data-processing
-    if: needs.data-processing.outputs.validation-passed == 'true'
-    
-    outputs:
-      model-id: ${{ steps.train.outputs.model_id }}
-      f1-score: ${{ steps.train.outputs.f1_score }}
-      roc-auc: ${{ steps.train.outputs.roc_auc }}
-    
+    needs: prepare-data
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download processed data
+        uses: actions/download-artifact@v4
+        with:
+          name: processed-data
+          path: ./
+
       - name: Train model
-        id: train
-        run: python scripts/training/train_model.py artifacts data/processed/cleaned_data.csv
-      
-      - name: Upload model artifacts
+        run: |
+          python src/mlops_project/models/train.py \
+            --config artifacts/models/best_model_config.yaml \
+            --data data/processed/cleaned_data.csv \
+            --models-dir artifacts/models \
+            --mlflow-tracking-uri file:./mlruns
+
+      - name: Evaluate trained model
+        run: |
+          python -m src.mlops_project.models.evaluate \
+            --model artifacts/models/Netflix_Prediction_final.pkl \
+            --data data/processed/cleaned_data.csv \
+            --reports-dir reports
+
+      - name: Quality gate check
+        run: python scripts/validation/quality_gate.py artifacts/metrics/metrics.json artifacts/baseline/metrics.json 0.95
+
+      - name: Run CT model quality tests
+        run: python -m pytest -m ct tests/test_model_quality.py
+
+      - name: Upload CT artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: trained-model
-          path: artifacts/models/
-          retention-days: 90
-  
-  # ============================================================================
-  # JOB 3: Model Evaluation & Quality Gate
-  # ============================================================================
-  model-evaluation:
+          name: ct-artifacts
+          path: |
+            artifacts/models/
+            artifacts/metrics/
+            reports/
+          retention-days: 365
+
+  register-baseline:
     runs-on: ubuntu-latest
-    needs: [data-processing, model-training]
-    
-    outputs:
-      quality-passed: ${{ steps.quality-gate.outputs.passed }}
-    
+    needs: train-and-evaluate
+    if: github.ref == 'refs/heads/main' && needs.train-and-evaluate.result == 'success'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      
-      - name: Download model artifacts
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download CT artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: '*'
-          merge-multiple: true
-      
-      - name: Quality gate check
-        id: quality-gate
-        run: python scripts/validation/quality_gate.py artifacts/metrics/metrics.json artifacts/baseline/metrics.json 0.95
-        continue-on-error: true
-      
-      - name: Upload evaluation report
-        uses: actions/upload-artifact@v4
-        with:
-          name: evaluation-report
-          path: artifacts/metrics/
-          retention-days: 365
-  
-  # ============================================================================
-  # JOB 4: Model Registration
-  # ============================================================================
-  model-registration:
-    runs-on: ubuntu-latest
-    needs: [model-training, model-evaluation]
-    if: |
-      needs.model-evaluation.outputs.quality-passed == 'true' &&
-      github.ref == 'refs/heads/main'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install dependencies
-        run: pip install scikit-learn
-      
-      - name: Download model
-        uses: actions/download-artifact@v4
-        with:
-          name: trained-model
-          path: ./artifacts/
-      
-      - name: Register model
+          name: ct-artifacts
+          path: ./
+
+      - name: Register baseline metrics
         run: python scripts/training/register_model.py artifacts/metrics/metrics.json artifacts/baseline/metrics.json
-      
+
       - name: Pipeline summary
         run: |
           echo "## ✅ CT Pipeline Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Data Processing**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Model Training**: ✅ Completed (ID: ${{ needs.model-training.outputs.model-id }})" >> $GITHUB_STEP_SUMMARY
-          echo "- **Quality Gate**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
-          echo "  - F1 Score: ${{ needs.model-training.outputs.f1-score }}" >> $GITHUB_STEP_SUMMARY
-          echo "  - ROC AUC: ${{ needs.model-training.outputs.roc-auc }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Data Preparation**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Training and Evaluation**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Baseline Registration**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Reference Model Artifact**: artifacts/models/Netflix_Prediction_final.pkl" >> $GITHUB_STEP_SUMMARY
 
-  # ============================================================================
-  # JOB 5: CT Health Summary (Single status check)
-  # ============================================================================
   ct-health:
     runs-on: ubuntu-latest
     if: always()
-    needs: [data-processing, model-training, model-evaluation, model-registration]
+    needs: [prepare-data, train-and-evaluate, register-baseline]
 
     steps:
       - name: Write CT summary
         run: |
           echo "## CT Health Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Data Processing: ${{ needs.data-processing.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Validation Passed Output: ${{ needs.data-processing.outputs.validation-passed }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Model Training: ${{ needs.model-training.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Model Evaluation: ${{ needs.model-evaluation.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Quality Gate Passed Output: ${{ needs.model-evaluation.outputs.quality-passed }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Model Registration: ${{ needs.model-registration.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Data Preparation: ${{ needs.prepare-data.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Training and Evaluation: ${{ needs.train-and-evaluate.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Baseline Registration: ${{ needs.register-baseline.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Interpretation" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ needs.data-processing.result }}" != "success" ]; then
-            echo "- Data processing failed (or was cancelled)." >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.prepare-data.result }}" != "success" ]; then
+            echo "- Data preparation failed." >> $GITHUB_STEP_SUMMARY
           fi
-          if [ "${{ needs.data-processing.outputs.validation-passed }}" != "true" ]; then
-            echo "- Training was blocked because data validation output was not true." >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.train-and-evaluate.result }}" != "success" ]; then
+            echo "- Training or evaluation failed." >> $GITHUB_STEP_SUMMARY
           fi
-          if [ "${{ needs.model-evaluation.outputs.quality-passed }}" != "true" ]; then
-            echo "- Registration can be skipped because quality gate did not pass." >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.register-baseline.result }}" != "success" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "- Baseline registration failed or was skipped." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Enforce CT pass/fail
         run: |
-          if [ "${{ needs.data-processing.result }}" != "success" ]; then
-            echo "CT failed: data-processing did not succeed"
+          if [ "${{ needs.prepare-data.result }}" != "success" ]; then
+            echo "CT failed: data preparation did not succeed"
             exit 1
           fi
 
-          if [ "${{ needs.data-processing.outputs.validation-passed }}" != "true" ]; then
-            echo "CT failed: validation-passed output is not true"
+          if [ "${{ needs.train-and-evaluate.result }}" != "success" ]; then
+            echo "CT failed: training and evaluation did not succeed"
             exit 1
           fi
 
-          if [ "${{ needs.model-training.result }}" != "success" ]; then
-            echo "CT failed: model-training did not succeed"
-            exit 1
-          fi
-
-          if [ "${{ needs.model-evaluation.result }}" != "success" ]; then
-            echo "CT failed: model-evaluation did not succeed"
-            exit 1
-          fi
-
-          if [ "${{ needs.model-evaluation.outputs.quality-passed }}" = "true" ] && [ "${{ needs.model-registration.result }}" != "success" ]; then
-            echo "CT failed: quality passed but model-registration did not succeed"
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ needs.register-baseline.result }}" != "success" ]; then
+            echo "CT failed: baseline registration did not succeed on main"
             exit 1
           fi
 

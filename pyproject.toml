@@ -21,3 +21,6 @@ exclude = [".git", "__pycache__", ".venv", ".pytest_cache", "mlruns", "artifacts
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v"
+markers = [
+	"ct: integration tests that require real artifacts, data, and model readiness",
+]

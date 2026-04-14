@@ -9,35 +9,33 @@ echo "============================================================"
 DATASET_PATH="data/raw/netflix_large.csv"
 MODEL_PATH="artifacts/models/Netflix_Prediction_final.pkl"
 
-echo "[Boot: DVC] Configuring Credentials for DagsHub..."
-if [ -z "$DAGSHUB_USERNAME" ] || [ -z "$DAGSHUB_TOKEN" ]; then
-    echo "❌ FATAL ERROR: Missing DAGSHUB_USERNAME or DAGSHUB_TOKEN."
-    exit 1
-fi
+if [ ! -f "$MODEL_PATH" ] || [ ! -f "$DATASET_PATH" ]; then
+    echo "[Boot: DVC] Missing local model or dataset, checking DagsHub credentials..."
+    if [ -z "$DAGSHUB_USERNAME" ] || [ -z "$DAGSHUB_TOKEN" ]; then
+        echo "❌ FATAL ERROR: Missing DAGSHUB_USERNAME or DAGSHUB_TOKEN."
+        exit 1
+    fi
 
-# Step 1: DVC Auth Configuration
-# Ensure DVC local config uses no-scm mode because .git is ignored in Docker
-dvc config core.no_scm true
-dvc remote modify origin --local auth basic
-dvc remote modify origin --local user "$DAGSHUB_USERNAME"
-dvc remote modify origin --local password "$DAGSHUB_TOKEN"
+    # Step 1: DVC Auth Configuration
+    # Ensure DVC local config uses no-scm mode because .git is ignored in Docker
+    dvc config core.no_scm true
+    dvc remote modify origin --local auth basic
+    dvc remote modify origin --local user "$DAGSHUB_USERNAME"
+    dvc remote modify origin --local password "$DAGSHUB_TOKEN"
 
-echo "[Boot: DVC] Synchronizing Data..."
-# Step 2: Data Sync using DVC Pull (optional if artifacts already exist)
-if [ ! -f "$MODEL_PATH" ]; then
-    echo "⚠️  Model not found locally. Attempting to pull from DVC remote..."
+    echo "[Boot: DVC] Synchronizing Data..."
     if dvc pull -r origin -v -f; then
         echo "✅ DVC Sync successful from remote."
     else
         echo "⚠️  Warning: DVC pull failed or data missing on remote. Continuing with local artifacts if available..."
     fi
 else
-    echo "✅ Model artifact found locally. Skipping DVC pull."
+    echo "✅ Active model and dataset found locally. Skipping DVC auth and pull."
 fi
 
 echo "[Boot: MLflow] Connecting to Tracking URI: ${MLFLOW_TRACKING_URI:-Unknown}"
 
-# Step 3: Conditional Training Logic
+# Step 2: Conditional Training Logic
 if [ ! -f "$MODEL_PATH" ]; then
     echo "⚠️ Target model not found at $MODEL_PATH. Initiating training..."
     
@@ -72,5 +70,5 @@ echo "[Production Boot] System Health: OK. Serving API... 🚀"
 echo "👉 Swagger UI is available at: http://localhost:8000/docs"
 echo "============================================================"
 
-# Step 4: Start Serving
+# Step 3: Start Serving
 exec uvicorn mlops_project.api.serve:app --host 0.0.0.0 --port 8000

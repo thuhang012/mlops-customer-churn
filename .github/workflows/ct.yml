@@ -50,14 +50,14 @@ jobs:
 
       - name: Ensure DagsHub secrets exist
         run: |
-          if [ -z "${{ secrets.DAGSHUB_TOKEN }}" ] || { [ -z "${{ secrets.DAGSHUB_USERNAME }}" ] && [ -z "${{ secrets.DAGSHUB_USER }}" ]; }; then
-            echo "DAGSHUB_TOKEN and one of DAGSHUB_USERNAME or DAGSHUB_USER are required for real-data CT"
+          if [ -z "${{ secrets.DAGSHUB_TOKEN }}" ] || [ -z "${{ secrets.DAGSHUB_USERNAME }}" ]; then
+            echo "DAGSHUB_TOKEN and DAGSHUB_USERNAME are required for real-data CT"
             exit 1
           fi
 
       - name: Pull real data with DVC
         env:
-          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME || secrets.DAGSHUB_USER }}
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
           DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
           dvc remote modify --local origin auth basic

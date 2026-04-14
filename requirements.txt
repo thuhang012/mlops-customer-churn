@@ -9,6 +9,7 @@ mlflow
 optuna
 xgboost
 lightgbm
+catboost
 
 # Data management
 dvc[s3]

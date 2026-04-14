@@ -152,13 +152,12 @@ Current flow:
 
 1. Build Docker image
 2. Run container and smoke-test /health
-3. Push image to GHCR (on push to main)
-4. Write deployment summary in GitHub Actions
+3. Write deployment summary in GitHub Actions
 
 Note:
 
-- This is a deployment scaffold for learning and iteration.
-- Cloud deploy target integration (Render/AWS/K8s) is the next step.
+- Offline-first: smoke-test only, no image push to GHCR.
+- Docker is for local validation; CD does not require online registry.
 
 ---
 

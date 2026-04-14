@@ -5,6 +5,11 @@ echo "============================================================"
 echo "[Production Boot] Initializing MLOps Pipeline..."
 echo "============================================================"
 
+if [ "${CI_SMOKE_MODE:-false}" = "true" ]; then
+    echo "[CD Smoke Mode] Skipping DVC sync and training bootstrap."
+    exec uvicorn mlops_project.api.serve:app --host 0.0.0.0 --port 8000
+fi
+
 # Paths setup
 DATASET_PATH="data/raw/netflix_large.csv"
 MODEL_PATH="artifacts/models/Netflix_Prediction_final.pkl"

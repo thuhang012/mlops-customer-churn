@@ -10,7 +10,7 @@ Dự án này sử dụng mô hình **DVC (Data Version Control)** kết hợp v
 Mô hình quản lý này tách biệt Mã nguồn và Dữ liệu thật:
 
 * **Git (GitHub/DagsHub Git):** Quản lý mã nguồn và các file **biên lai (.dvc)**. File `.dvc` rất nhẹ, chỉ chứa mã băm (MD5 hash) để định danh file dữ liệu.
-* **DVC (DagsHub Storage):** Quản lý "ruột" của các file dữ liệu nặng (ví dụ: `netflix_large.csv`). Dữ liệu này được lưu trữ trong kho riêng của DagsHub.
+* **DVC (DagsHub Storage):** Quản lý "ruột" của các file dữ liệu nặng (ví dụ: `telcom_churn.csv`). Dữ liệu này được lưu trữ trong kho riêng của DagsHub.
 * **Sự đồng bộ:** Khi bạn `git pull`, bạn nhận được "biên lai". Sau đó, bạn dùng `dvc pull` để cầm biên lai đó lên kho DagsHub đổi lấy dữ liệu thật.
 
 ---
@@ -42,7 +42,7 @@ dvc remote modify origin --local password 42faca3ef5d1242b9f72c7f5be0f09e97acd4c
 ```powershell
 dvc pull -r origin
 ```
-*Sau khi chạy thành công, file dữ liệu thật sẽ xuất hiện tại `data/raw/netflix_large.csv`.*
+*Sau khi chạy thành công, file dữ liệu thật sẽ xuất hiện tại `data/raw/telcom_churn.csv`.*
 
 ---
 

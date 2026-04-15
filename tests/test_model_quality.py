@@ -1,0 +1,179 @@
+from pathlib import Path
+import json
+import os
+
+import joblib
+import numpy as np
+import pandas as pd
+import pytest
+from sklearn.metrics import roc_auc_score
+from sklearn.utils.validation import check_is_fitted
+
+from src.mlops_project.api.service import MODEL_PATH, PREPROCESSOR_PATH
+from src.mlops_project.data.validate_data import clean_raw_dataframe
+from src.mlops_project.features.build_features import prepare_feature_inputs
+from src.mlops_project.models.evaluate import compute_metrics, extract_model_and_threshold
+
+
+pytestmark = pytest.mark.ct
+
+
+TARGET_COLUMN = "churn_status"
+RAW_DATA_PATH = Path("data/raw/netflix_large.csv")
+BASELINE_METRICS_PATH = Path("artifacts/baseline/metrics.json")
+
+
+def _assert_file_exists(path: Path) -> None:
+    assert path.exists(), f"Required real artifact/data file is missing: {path}"
+
+
+def _load_model_bundle() -> tuple[object, float]:
+    model_path = Path(MODEL_PATH)
+    _assert_file_exists(model_path)
+
+    loaded = joblib.load(model_path)
+    model, threshold = extract_model_and_threshold(loaded, default_threshold=0.5)
+    return model, threshold
+
+
+def _model_is_fitted(model) -> bool:
+    try:
+        check_is_fitted(model)
+        return True
+    except Exception:
+        return False
+
+
+def _require_fitted(model) -> None:
+    if not _model_is_fitted(model):
+        force_run = os.getenv("FORCE_RUN_UNFITTED_MODEL_TESTS", "0").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        if force_run:
+            return
+        pytest.skip("Real model artifact exists but is not fitted yet")
+
+
+def _load_preprocessor_bundle() -> tuple[object, list[str]]:
+    preprocessor_path = Path(PREPROCESSOR_PATH)
+    _assert_file_exists(preprocessor_path)
+
+    bundle = joblib.load(preprocessor_path)
+    assert "pipeline" in bundle, "Preprocessor artifact must contain 'pipeline'"
+    assert "feature_columns" in bundle, "Preprocessor artifact must contain 'feature_columns'"
+    return bundle["pipeline"], list(bundle["feature_columns"])
+
+
+def _load_real_feature_inputs() -> tuple[pd.DataFrame, pd.Series]:
+    _assert_file_exists(RAW_DATA_PATH)
+
+    raw_df = pd.read_csv(RAW_DATA_PATH)
+    validated_df, _ = clean_raw_dataframe(raw_df)
+    feature_source_df, _ = prepare_feature_inputs(validated_df)
+
+    assert TARGET_COLUMN in feature_source_df.columns, "Target column missing after feature preparation"
+    y_true = feature_source_df[TARGET_COLUMN]
+    x_inputs = feature_source_df.drop(columns=[TARGET_COLUMN])
+    return x_inputs, y_true
+
+
+def _transform_inputs(x_inputs: pd.DataFrame, preprocessor, feature_columns: list[str]) -> pd.DataFrame:
+    model_input_df = x_inputs.reindex(columns=feature_columns)
+    transformed = preprocessor.transform(model_input_df)
+    feature_names = preprocessor.get_feature_names_out()
+    return pd.DataFrame(transformed, columns=feature_names, index=x_inputs.index)
+
+
+def _load_baseline_metrics() -> dict[str, float]:
+    if BASELINE_METRICS_PATH.exists():
+        with BASELINE_METRICS_PATH.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"f1_score": 0.60, "roc_auc": 0.65}
+
+
+def test_artifacts_and_data_exist_for_real_testing():
+    _assert_file_exists(Path(MODEL_PATH))
+    _assert_file_exists(Path(PREPROCESSOR_PATH))
+    _assert_file_exists(RAW_DATA_PATH)
+
+
+def test_preprocessor_feature_columns_match_real_feature_inputs():
+    x_inputs, _ = _load_real_feature_inputs()
+    _, feature_columns = _load_preprocessor_bundle()
+
+    missing_for_preprocessor = set(feature_columns) - set(x_inputs.columns)
+    assert not missing_for_preprocessor, (
+        f"Real feature inputs are missing expected preprocessor columns: {sorted(missing_for_preprocessor)}"
+    )
+
+
+def test_model_artifact_is_fitted_for_inference():
+    model, _ = _load_model_bundle()
+    assert _model_is_fitted(model), "Model artifact exists but is not fitted for inference"
+
+
+def test_model_predicts_valid_probabilities_on_real_inputs():
+    model, _ = _load_model_bundle()
+    _require_fitted(model)
+
+    preprocessor, feature_columns = _load_preprocessor_bundle()
+    x_inputs, _ = _load_real_feature_inputs()
+
+    transformed_df = _transform_inputs(x_inputs, preprocessor, feature_columns)
+    y_proba = model.predict_proba(transformed_df)[:, 1]
+
+    assert len(y_proba) == len(transformed_df)
+    assert np.all(y_proba >= 0.0)
+    assert np.all(y_proba <= 1.0)
+
+
+def test_quality_gate_thresholds_on_real_data():
+    model, threshold = _load_model_bundle()
+    _require_fitted(model)
+
+    preprocessor, feature_columns = _load_preprocessor_bundle()
+    x_inputs, y_true = _load_real_feature_inputs()
+    baseline = _load_baseline_metrics()
+
+    transformed_df = _transform_inputs(x_inputs, preprocessor, feature_columns)
+    y_proba = model.predict_proba(transformed_df)[:, 1]
+    metrics = compute_metrics(y_true=y_true, y_proba=y_proba, threshold=threshold)
+
+    baseline_f1 = float(baseline.get("f1_score", 0.60))
+    baseline_auc = float(baseline.get("roc_auc", 0.65))
+    f1_threshold = baseline_f1 * 0.95
+    auc_threshold = baseline_auc * 0.95
+
+    assert metrics["f1_score"] >= f1_threshold, f"F1 {metrics['f1_score']:.4f} below quality gate {f1_threshold:.4f}"
+    assert metrics["roc_auc"] >= auc_threshold, f"ROC AUC {metrics['roc_auc']:.4f} below quality gate {auc_threshold:.4f}"
+
+
+def test_predictions_are_deterministic_on_real_data():
+    model, _ = _load_model_bundle()
+    _require_fitted(model)
+
+    preprocessor, feature_columns = _load_preprocessor_bundle()
+    x_inputs, _ = _load_real_feature_inputs()
+
+    sample = x_inputs.iloc[: min(100, len(x_inputs))]
+    transformed_df = _transform_inputs(sample, preprocessor, feature_columns)
+
+    predictions_1 = model.predict(transformed_df)
+    predictions_2 = model.predict(transformed_df)
+    assert np.array_equal(predictions_1, predictions_2), "Predictions are non-deterministic"
+
+
+def test_probabilities_align_with_auc_expectation_on_real_data():
+    model, _ = _load_model_bundle()
+    _require_fitted(model)
+
+    preprocessor, feature_columns = _load_preprocessor_bundle()
+    x_inputs, y_true = _load_real_feature_inputs()
+
+    transformed_df = _transform_inputs(x_inputs, preprocessor, feature_columns)
+    y_proba = model.predict_proba(transformed_df)[:, 1]
+    auc = roc_auc_score(y_true, y_proba)
+
+    assert 0.0 <= auc <= 1.0

@@ -13,9 +13,11 @@ REQUIRED_COLUMNS = {
     "watch_time_minutes",
 }
 
+pytestmark = pytest.mark.fast
 
-@pytest.mark.skipif(not DATA_PATH.exists(), reason="Dataset not available in CI/development environment")
+
 def test_raw_data_exists_and_has_required_columns():
+    assert DATA_PATH.exists(), f"Real dataset not found: {DATA_PATH}"
     df = pd.read_csv(DATA_PATH)
     assert len(df) > 0, "Dataset is empty"
 

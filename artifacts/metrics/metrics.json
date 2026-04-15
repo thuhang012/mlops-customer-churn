@@ -1,0 +1,7 @@
+{
+  "f1_score": 0.625,
+  "roc_auc": 0.8408845488129377,
+  "n_samples": 1409,
+  "n_features": 49,
+  "model_family": "linear"
+}

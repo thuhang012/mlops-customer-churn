@@ -22,30 +22,26 @@ from catboost import CatBoostClassifier
 import logging
 from mlflow.tracking import MlflowClient
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+import os
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train Churn model with YAML config.")
-    parser.add_argument(
-        "--config", type=str, required=True, help="Path to best_model_config.yaml"
-    )
+    parser.add_argument("--config", type=str, required=True, help="Path to best_model_config.yaml")
     parser.add_argument(
         "--data",
         type=str,
         required=True,
         help="Path to processed CSV with data_split column",
     )
-    parser.add_argument(
-        "--models-dir", type=str, required=True, help="Directory to save trained model"
-    )
+    parser.add_argument("--models-dir", type=str, required=True, help="Directory to save trained model")
     parser.add_argument(
         "--mlflow-tracking-uri",
         type=str,
-        default="http://127.0.0.1:5000",
+        default=os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000"),
         help="MLflow tracking URI",
     )
     return parser.parse_args()
@@ -59,9 +55,7 @@ def get_model_instance(name, params):
         "CatBoost": CatBoostClassifier,
     }
     if name not in model_map:
-        raise ValueError(
-            f"Unsupported model: {name}. Check 'best_model_overall' in YAML."
-        )
+        raise ValueError(f"Unsupported model: {name}. Check 'best_model_overall' in YAML.")
     return model_map[name](**params)
 
 
@@ -176,12 +170,8 @@ def main(args):
         except Exception:
             pass
 
-        mv = client.create_model_version(
-            name=model_name, source=model_uri, run_id=run_id
-        )
-        client.transition_model_version_stage(
-            name=model_name, version=mv.version, stage="Staging"
-        )
+        mv = client.create_model_version(name=model_name, source=model_uri, run_id=run_id)
+        client.transition_model_version_stage(name=model_name, version=mv.version, stage="Staging")
 
         # 6. Lưu file .pkl cục bộ
 
@@ -192,6 +182,7 @@ def main(args):
                 "model": model,
                 "threshold": SELECTED_THRESHOLD,
                 "model_name": best_algo,
+                "feature_columns": list(X_train.columns),
             },
             save_path,
         )

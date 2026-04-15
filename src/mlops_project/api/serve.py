@@ -34,7 +34,7 @@ def predict_churn(data: CustomerInput):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
 
 @app.post("/batch-predict", response_model=list[PredictionOutput])
 def batch_predict_churn(data: list[CustomerInput]):
@@ -45,7 +45,7 @@ def batch_predict_churn(data: list[CustomerInput]):
             log_inference(item.model_dump(), result.churn_probability)
 
         return results
-    
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:

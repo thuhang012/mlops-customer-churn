@@ -20,10 +20,28 @@
             .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.9rem; }
             .badge-ok { background: #27ae60; color: white; }
             .badge-drift { background: #c0392b; color: white; }
+            .retrain-banner { background: #fdf3f3; border: 2px solid #c0392b; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }
+            .retrain-banner h2 { color: #c0392b; margin: 0 0 8px; font-size: 1.2rem; }
+            .retrain-banner ul { margin: 8px 0 0 0; padding-left: 20px; color: #333; }
+            .retrain-banner .confidence { font-weight: bold; }
+            .confidence-high { color: #c0392b; }
+            .confidence-medium { color: #e67e22; }
+            .confidence-low { color: #f39c12; }
+            .ok-banner { background: #f0fdf4; border: 2px solid #27ae60; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; color: #1e7e34; font-weight: bold; }
         </style>
     </head>
     <body>
         <h1>Data Drift Report</h1>
+        
+        <div class="retrain-banner">
+            <h2>&#9888; Model Retraining Recommended</h2>
+            <p>Confidence: <span class="confidence confidence-medium">MEDIUM</span>
+               &nbsp;&mdash;&nbsp; 9% of features drifted,
+               average severity 0.39</p>
+            <ul><li>KS > 0.2 on: completion_percentage, rating, days_since_last_watch, monthly_fee, watch_time_minutes, avg_weekly_watch_time</li></ul>
+            <p style="margin-top:10px;font-size:0.9rem;color:#555;">Note: this assessment is based purely on input feature drift.
+            Collect labelled outcomes to confirm model performance degradation before retraining.</p>
+        </div>
         <div class="summary-card">
             <p><strong>Reference rows:</strong> 50000</p>
             <p><strong>Current rows:</strong> 300</p>

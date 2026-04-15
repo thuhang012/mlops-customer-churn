@@ -26,6 +26,12 @@ EXCLUDE_COLUMNS = {"data_split", "churn_status"}
 NUMERIC_DRIFT_THRESHOLD = 0.10
 CATEGORICAL_DRIFT_THRESHOLD = 0.10
 
+# Critical thresholds — crossing these suggests the model needs retraining
+PSI_CRITICAL = 0.25          # industry standard: PSI > 0.25 = major distribution shift
+KS_CRITICAL = 0.20           # KS statistic indicating severe numeric drift
+JS_CRITICAL = 0.20           # JS divergence indicating severe categorical drift
+DRIFT_FRACTION_CRITICAL = 0.30  # if >30% of features are drifted, retrain
+
 
 def load_dataframe(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path)
@@ -109,6 +115,48 @@ def chi2_test(reference: pd.Series, current: pd.Series) -> tuple[float | None, f
     )
     chi2_stat, p_value, _, _ = chi2_contingency(contingency, correction=False)
     return float(chi2_stat), float(p_value)
+
+
+def assess_retraining_need(metrics: list[dict[str, Any]]) -> dict[str, Any]:
+    """Determine if model retraining is recommended based solely on input drift."""
+    total = len(metrics)
+    if total == 0:
+        return {"recommended": False, "confidence": "low", "reasons": []}
+
+    drifted_count = sum(1 for m in metrics if m["alert"])
+    drift_fraction = drifted_count / total
+
+    critical_psi = [m["feature"] for m in metrics if m.get("psi") is not None and m["psi"] > PSI_CRITICAL]
+    critical_ks = [m["feature"] for m in metrics if m["feature_type"] == "numeric" and m["value"] > KS_CRITICAL]
+    critical_js = [m["feature"] for m in metrics if m["feature_type"] == "categorical" and m["value"] > JS_CRITICAL]
+    avg_severity = sum(m["severity"] for m in metrics if m["alert"]) / drifted_count if drifted_count > 0 else 0.0
+
+    reasons: list[str] = []
+    if critical_psi:
+        reasons.append(f"PSI > {PSI_CRITICAL} on: {', '.join(critical_psi)}")
+    if critical_ks:
+        reasons.append(f"KS > {KS_CRITICAL} on: {', '.join(critical_ks)}")
+    if critical_js:
+        reasons.append(f"JS > {JS_CRITICAL} on: {', '.join(critical_js)}")
+    if drift_fraction > DRIFT_FRACTION_CRITICAL:
+        reasons.append(f"{drift_fraction:.0%} of features are drifted (threshold: {DRIFT_FRACTION_CRITICAL:.0%})")
+
+    recommended = len(reasons) > 0
+
+    if len(reasons) >= 3 or (critical_psi and drift_fraction > DRIFT_FRACTION_CRITICAL):
+        confidence = "high"
+    elif len(reasons) == 2 or avg_severity > 0.6:
+        confidence = "medium"
+    else:
+        confidence = "low" if not recommended else "medium"
+
+    return {
+        "recommended": recommended,
+        "confidence": confidence,
+        "reasons": reasons,
+        "drift_fraction": drift_fraction,
+        "avg_severity": avg_severity,
+    }
 
 
 def build_numeric_plot(reference: pd.Series, current: pd.Series, name: str, score: float) -> str:
@@ -218,8 +266,25 @@ def create_html_report(
     categorical_drift = sum(1 for metric in metrics if metric["alert"] and metric["feature_type"] == "categorical")
     fallback_note = "" if all(metric.get("p_value") is not None for metric in metrics) else "<li>Some statistical tests used fallback approximations because SciPy is not installed.</li>"
 
+    retrain = assess_retraining_need(metrics)
     severity_plot = build_severity_plot(metrics)
     drift_chart_title = f"All Drifted Charts ({len(drifted_metrics)})"
+
+    if retrain["recommended"]:
+        confidence_class = f"confidence-{retrain['confidence']}"
+        reasons_html = "".join(f"<li>{r}</li>" for r in retrain["reasons"])
+        retrain_banner_html = f"""
+        <div class="retrain-banner">
+            <h2>&#9888; Model Retraining Recommended</h2>
+            <p>Confidence: <span class="confidence {confidence_class}">{retrain['confidence'].upper()}</span>
+               &nbsp;&mdash;&nbsp; {retrain['drift_fraction']:.0%} of features drifted,
+               average severity {retrain['avg_severity']:.2f}</p>
+            <ul>{reasons_html}</ul>
+            <p style="margin-top:10px;font-size:0.9rem;color:#555;">Note: this assessment is based purely on input feature drift.
+            Collect labelled outcomes to confirm model performance degradation before retraining.</p>
+        </div>"""
+    else:
+        retrain_banner_html = '<div class="ok-banner">&#10003; No retraining needed &mdash; drift levels are within acceptable limits.</div>'
 
     report_html = f"""
     <!DOCTYPE html>
@@ -243,10 +308,19 @@ def create_html_report(
             .badge {{ display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.9rem; }}
             .badge-ok {{ background: #27ae60; color: white; }}
             .badge-drift {{ background: #c0392b; color: white; }}
+            .retrain-banner {{ background: #fdf3f3; border: 2px solid #c0392b; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }}
+            .retrain-banner h2 {{ color: #c0392b; margin: 0 0 8px; font-size: 1.2rem; }}
+            .retrain-banner ul {{ margin: 8px 0 0 0; padding-left: 20px; color: #333; }}
+            .retrain-banner .confidence {{ font-weight: bold; }}
+            .confidence-high {{ color: #c0392b; }}
+            .confidence-medium {{ color: #e67e22; }}
+            .confidence-low {{ color: #f39c12; }}
+            .ok-banner {{ background: #f0fdf4; border: 2px solid #27ae60; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; color: #1e7e34; font-weight: bold; }}
         </style>
     </head>
     <body>
         <h1>Data Drift Report</h1>
+        {retrain_banner_html}
         <div class="summary-card">
             <p><strong>Reference rows:</strong> {len(reference)}</p>
             <p><strong>Current rows:</strong> {len(current)}</p>

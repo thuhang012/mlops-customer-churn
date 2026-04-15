@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  ruff-lint:
     runs-on: ubuntu-latest
 
     steps:
@@ -41,9 +41,9 @@ jobs:
       - name: Lint with Ruff (critical errors only)
         run: python -m ruff check src tests --select E,F
 
-  security:
+  security-audit:
     runs-on: ubuntu-latest
-    needs: lint
+    needs: ruff-lint
 
     steps:
       - name: Checkout
@@ -64,9 +64,9 @@ jobs:
       - name: Run pip-audit
         run: python -m pip_audit
 
-  tests-fast:
+  pytest-fast:
     runs-on: ubuntu-latest
-    needs: [lint, security]
+    needs: [ruff-lint, security-audit]
 
     steps:
       - name: Checkout

@@ -15,7 +15,7 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def test_monitoring_detects_drift_and_degradation(tmp_path: Path):
+def test_monitoring_flags_drift_and_degradation_when_thresholds_are_exceeded(tmp_path: Path):
     reference_path = tmp_path / "reference.csv"
     production_path = tmp_path / "production.csv"
     baseline_path = tmp_path / "baseline.json"
@@ -61,7 +61,7 @@ def test_monitoring_detects_drift_and_degradation(tmp_path: Path):
     assert results["checks"]["performance_degradation"]["status"] == "ALERT"
 
 
-def test_monitoring_gracefully_handles_missing_inputs(tmp_path: Path):
+def test_monitoring_skips_checks_without_errors_when_input_files_are_missing(tmp_path: Path):
     reference_path = tmp_path / "missing_reference.csv"
     production_path = tmp_path / "missing_production.csv"
     baseline_path = tmp_path / "missing_baseline.json"

@@ -1,0 +1,11 @@
+project: Telco_Churn_Model
+best_model_overall: CatBoost
+threshold: 0.6
+hyperparameters:
+  iterations: 666
+  depth: 4
+  learning_rate: 0.016689585012689682
+  l2_leaf_reg: 8.06524410655627
+  subsample: 0.6361550152229549
+  random_strength: 3.575977810483283
+  scale_pos_weight: 2.7446507593224845

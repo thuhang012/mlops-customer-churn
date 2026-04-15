@@ -1,9 +1,11 @@
-# uvicorn src.mlops_project.api.serve:app --reload
+# uvicorn src.mlops_project.api.serve:app --host 0.0.0.0 --port 8000
 from fastapi import FastAPI, HTTPException
 
 from src.mlops_project.api.schema import CustomerInput, PredictionOutput
 from src.mlops_project.api.service import predict, batch_predict, artifacts_status
 from src.mlops_project.utils.logger import log_inference
+
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(
     title="Churn Prediction API",
@@ -11,6 +13,7 @@ app = FastAPI(
     description="FastAPI service for churn prediction",
 )
 
+Instrumentator().instrument(app).expose(app)
 
 @app.get("/")
 def root():
@@ -30,9 +33,8 @@ def predict_churn(data: CustomerInput):
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
-        raise HTTPException(status_code=500, detail="Internal server error")
-
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/batch-predict", response_model=list[PredictionOutput])
 def batch_predict_churn(data: list[CustomerInput]):
@@ -43,7 +45,8 @@ def batch_predict_churn(data: list[CustomerInput]):
             log_inference(item.model_dump(), result.churn_probability)
 
         return results
+    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e))

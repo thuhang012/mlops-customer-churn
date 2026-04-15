@@ -52,3 +52,15 @@ Nếu MLflow gặp lỗi dính cấu hình cũ, hãy xóa sạch các bộ nhớ
 docker-compose down -v
 ```
 *(Lệnh này chỉ xóa Database của Docker, KHÔNG XÓA file mô hình và mã nguồn của bạn ở ngoài Host).*
+
+## 4. K8s Production Deployment (Bảo Mật & Storage)
+
+### Khởi tạo Dagshub Secret (Bảo mật tuyệt đối)
+Tuyệt đối KHÔNG hardcode username và token vào file `.yaml`. Để API có thể kết nối tải data từ Dagshub khi chạy trên Kubernetes, bạn cần chạy tay lệnh tạo K8s Secret từ Terminal/Powershell:
+```powershell
+kubectl create secret generic dagshub-secret --from-literal=username="<ten-dang-nhap>" --from-literal=token="<token-cua-ban>"
+```
+> *Lưu ý: K8s Secret sẽ được lưu tự động trong internal namespace Kube System, đảm bảo Hacker xem trộm mã nguồn trên Github cũng không lấy cắp được cấu hình của bạn.*
+
+### Lưu ý về Volume
+Môi trường K8s đã được thiết lập `PersistentVolumeClaim` để đảm bảo dữ liệu Lịch sử Training (MLflow db/artifacts) không bị mất khi Pod bị khởi động lại (tránh dùng `emptyDir`).

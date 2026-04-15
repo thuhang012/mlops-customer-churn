@@ -11,6 +11,7 @@ venv/
 # Ignored from Raw Data (but keep dvc files!)
 data/raw/*
 !data/raw/*.dvc
+!data/raw/netflix_large.csv
 
 # Python Caches
 __pycache__/

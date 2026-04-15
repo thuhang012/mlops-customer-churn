@@ -22,26 +22,20 @@ from catboost import CatBoostClassifier
 import logging
 from mlflow.tracking import MlflowClient
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train Churn model with YAML config.")
-    parser.add_argument(
-        "--config", type=str, required=True, help="Path to best_model_config.yaml"
-    )
+    parser.add_argument("--config", type=str, required=True, help="Path to best_model_config.yaml")
     parser.add_argument(
         "--data",
         type=str,
         required=True,
         help="Path to processed CSV with data_split column",
     )
-    parser.add_argument(
-        "--models-dir", type=str, required=True, help="Directory to save trained model"
-    )
+    parser.add_argument("--models-dir", type=str, required=True, help="Directory to save trained model")
     parser.add_argument(
         "--mlflow-tracking-uri",
         type=str,
@@ -59,9 +53,7 @@ def get_model_instance(name, params):
         "CatBoost": CatBoostClassifier,
     }
     if name not in model_map:
-        raise ValueError(
-            f"Unsupported model: {name}. Check 'best_model_overall' in YAML."
-        )
+        raise ValueError(f"Unsupported model: {name}. Check 'best_model_overall' in YAML.")
     return model_map[name](**params)
 
 
@@ -116,14 +108,18 @@ def main(args):
 
     # 3. Khởi tạo mô hình
     model = get_model_instance(best_algo, params)
+    SELECTED_THRESHOLD = float(config.get("threshold", 0.5))
+    # SELECTED_THRESHOLD = 0.5
 
     with mlflow.start_run(run_name=f"final_training_{best_algo}"):
         logger.info(f"Training {best_algo} on custom split...")
         model.fit(X_train, y_train)
 
         # Dự đoán để tính metrics
-        y_pred = model.predict(X_test)
+        # y_pred = model.predict(X_test)
+        # y_proba = model.predict_proba(X_test)[:, 1]
         y_proba = model.predict_proba(X_test)[:, 1]
+        y_pred = (y_proba >= SELECTED_THRESHOLD).astype(int)
 
         metrics = {
             "accuracy": float(accuracy_score(y_test, y_pred)),
@@ -152,6 +148,7 @@ def main(args):
         # Log tham số và kết quả lên MLflow
         mlflow.log_params(params)
         mlflow.log_metrics(metrics)
+        mlflow.log_param("selected_threshold", SELECTED_THRESHOLD)
 
         # 4. Log Model dựa trên thuật toán
         if best_algo == "LightGBM":
@@ -171,21 +168,18 @@ def main(args):
         except Exception:
             pass
 
-        mv = client.create_model_version(
-            name=model_name, source=model_uri, run_id=run_id
-        )
-        client.transition_model_version_stage(
-            name=model_name, version=mv.version, stage="Staging"
-        )
+        mv = client.create_model_version(name=model_name, source=model_uri, run_id=run_id)
+        client.transition_model_version_stage(name=model_name, version=mv.version, stage="Staging")
 
         # 6. Lưu file .pkl cục bộ
-        SELECTED_THRESHOLD = 0.5
+
         save_path = f"{args.models_dir}/{model_name}_final.pkl"
         # joblib.dump(model, save_path)
         joblib.dump(
             {
                 "model": model,
                 "threshold": SELECTED_THRESHOLD,
+                "model_name": best_algo,
             },
             save_path,
         )

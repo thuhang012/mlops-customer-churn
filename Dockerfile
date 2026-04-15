@@ -52,6 +52,7 @@ RUN sed -i 's/\r$//' ./scripts/entrypoint.sh && chmod +x ./scripts/entrypoint.sh
 # Copy Application Code and Configs
 # This ensures that no mock files or raw files are copied, dependent on .dockerignore
 COPY --chown=user:user src/ ./src/
+COPY --chown=user:user data/ ./data/
 COPY --chown=user:user artifacts/ ./artifacts/
 COPY --chown=user:user dvc.yaml dvc.lock ./
 COPY --chown=user:user .dvc/ ./.dvc/

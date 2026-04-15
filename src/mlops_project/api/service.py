@@ -8,22 +8,36 @@ from src.mlops_project.features.build_features import prepare_feature_inputs
 MODEL_PATH = "artifacts/models/Netflix_Prediction_final.pkl"
 PREPROCESSOR_PATH = "artifacts/preprocessors/preprocessor.pkl"
 
-try:
-    model = joblib.load(MODEL_PATH)
-    preprocessor_artifact = joblib.load(PREPROCESSOR_PATH)
-except Exception as e:
-    raise RuntimeError(f"Error loading model or preprocessor: {str(e)}")
+model = None
+preprocessor = None
+feature_columns = None
 
-preprocessor = preprocessor_artifact["pipeline"]
-feature_columns = preprocessor_artifact["feature_columns"]
+
+def _load_artifacts():
+    global model, preprocessor, feature_columns
+    if model is None or preprocessor is None:
+        try:
+            model = joblib.load(MODEL_PATH)
+            preprocessor_artifact = joblib.load(PREPROCESSOR_PATH)
+            preprocessor = preprocessor_artifact["pipeline"]
+            feature_columns = preprocessor_artifact["feature_columns"]
+        except Exception as e:
+            raise RuntimeError(f"Error loading model or preprocessor: {str(e)}")
+
 
 def artifacts_status() -> dict:
-    return {
-        "model_loaded": model is not None,
-        "preprocessor_loaded": preprocessor is not None
-    }
+    try:
+        _load_artifacts()
+        return {
+            "model_loaded": model is not None,
+            "preprocessor_loaded": preprocessor is not None,
+        }
+    except Exception:
+        return {"model_loaded": False, "preprocessor_loaded": False}
+
 
 def predict(data: CustomerInput) -> PredictionOutput:
+    _load_artifacts()
     try:
         # raw_df = pd.DataFrame([data.dict()])  #  Pydantic v1
         raw_df = pd.DataFrame([data.model_dump()])
@@ -43,15 +57,14 @@ def predict(data: CustomerInput) -> PredictionOutput:
         churn_prob = proba[0][1]
         churn_label = int(churn_prob > 0.5)
 
-        return PredictionOutput(
-            churn_probability=float(churn_prob),
-            prediction=churn_label
-        )
+        return PredictionOutput(churn_probability=float(churn_prob), prediction=churn_label)
 
     except Exception as e:
         raise ValueError(f"Prediction failed: {str(e)}")
 
+
 def batch_predict(data_list: list[CustomerInput]) -> list[PredictionOutput]:
+    _load_artifacts()
     try:
         raw_df = pd.DataFrame([item.model_dump() for item in data_list])
 
@@ -68,11 +81,7 @@ def batch_predict(data_list: list[CustomerInput]) -> list[PredictionOutput]:
         labels = (proba > 0.5).astype(int)
 
         results = [
-            PredictionOutput(
-                churn_probability=float(prob),
-                prediction=int(label)
-            )
-            for prob, label in zip(proba, labels)
+            PredictionOutput(churn_probability=float(prob), prediction=int(label)) for prob, label in zip(proba, labels)
         ]
 
         return results

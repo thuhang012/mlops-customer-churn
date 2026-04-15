@@ -93,13 +93,13 @@ def _load_baseline_metrics() -> dict[str, float]:
     return {"f1_score": 0.60, "roc_auc": 0.65}
 
 
-def test_artifacts_and_data_exist_for_real_testing():
+def test_ct_model_preprocessor_and_raw_dataset_on_disk():
     _assert_file_exists(Path(MODEL_PATH))
     _assert_file_exists(Path(PREPROCESSOR_PATH))
     _assert_file_exists(RAW_DATA_PATH)
 
 
-def test_preprocessor_feature_columns_match_real_feature_inputs():
+def test_ct_preprocessor_columns_are_compatible_with_engineered_features():
     x_inputs, _ = _load_real_feature_inputs()
     _, feature_columns = _load_preprocessor_bundle()
 
@@ -109,12 +109,12 @@ def test_preprocessor_feature_columns_match_real_feature_inputs():
     )
 
 
-def test_model_artifact_is_fitted_for_inference():
+def test_ct_saved_estimator_is_fitted_for_inference():
     model, _ = _load_model_bundle()
     assert _model_is_fitted(model), "Model artifact exists but is not fitted for inference"
 
 
-def test_model_predicts_valid_probabilities_on_real_inputs():
+def test_ct_predicted_probabilities_are_within_unit_interval():
     model, _ = _load_model_bundle()
     _require_fitted(model)
 
@@ -129,7 +129,7 @@ def test_model_predicts_valid_probabilities_on_real_inputs():
     assert np.all(y_proba <= 1.0)
 
 
-def test_quality_gate_thresholds_on_real_data():
+def test_ct_metrics_meet_baseline_quality_gate():
     model, threshold = _load_model_bundle()
     _require_fitted(model)
 
@@ -150,7 +150,7 @@ def test_quality_gate_thresholds_on_real_data():
     assert metrics["roc_auc"] >= auc_threshold, f"ROC AUC {metrics['roc_auc']:.4f} below quality gate {auc_threshold:.4f}"
 
 
-def test_predictions_are_deterministic_on_real_data():
+def test_ct_classifier_predictions_are_identical_on_repeated_forward_pass():
     model, _ = _load_model_bundle()
     _require_fitted(model)
 
@@ -165,7 +165,7 @@ def test_predictions_are_deterministic_on_real_data():
     assert np.array_equal(predictions_1, predictions_2), "Predictions are non-deterministic"
 
 
-def test_probabilities_align_with_auc_expectation_on_real_data():
+def test_ct_roc_auc_is_within_valid_numeric_bounds():
     model, _ = _load_model_bundle()
     _require_fitted(model)
 

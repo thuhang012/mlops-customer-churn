@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from scripts.monitoring.checks import run_monitoring_checks
+from src.mlops_project.monitoring.checks import run_monitoring_checks
 
 
 pytestmark = pytest.mark.fast
@@ -15,7 +15,7 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def test_monitoring_flags_drift_and_degradation_when_thresholds_are_exceeded(tmp_path: Path):
+def test_monitoring_checks_only_performance_degradation_when_metrics_drop(tmp_path: Path):
     reference_path = tmp_path / "reference.csv"
     production_path = tmp_path / "production.csv"
     baseline_path = tmp_path / "baseline.json"
@@ -49,15 +49,12 @@ def test_monitoring_flags_drift_and_degradation_when_thresholds_are_exceeded(tmp
         production_log_path=production_path,
         baseline_metrics_path=baseline_path,
         current_metrics_path=current_path,
-        min_drifted_share=0.2,
-        ks_alpha=0.2,
-        psi_threshold=0.1,
         max_allowed_degradation=0.05,
     )
 
-    assert results["drift_detected"] is True
+    assert results["drift_detected"] is False
     assert results["degradation_detected"] is True
-    assert results["checks"]["feature_drift"]["status"] == "ALERT"
+    assert results["checks"]["feature_drift"]["status"] == "SKIPPED"
     assert results["checks"]["performance_degradation"]["status"] == "ALERT"
 
 

@@ -1,43 +1,67 @@
-import subprocess
-import pandas as pd
-from datetime import datetime
 import os
+from datetime import datetime, timezone
+from typing import Any
 
-INFERENCE_LOG_PATH = "monitoring/inference/inference_log.csv"
-DRIFT_REPORT_TRIGGER_EVERY = 100  # run drift report every N new predictions
+import joblib
+import pandas as pd
+
+from src.mlops_project.data.validate_data import clean_raw_dataframe
+from src.mlops_project.features.build_features import prepare_feature_inputs
+
+INFERENCE_LOG_PATH = "data/processed/inference_log.csv"
+PREPROCESSOR_PATH = os.getenv("PREPROCESSOR_PATH", "artifacts/preprocessors/preprocessor.pkl")
+
+
+_LOG_PREPROCESSOR = None
+_RAW_FEATURE_COLUMNS = None
+_TRANSFORMED_FEATURE_COLUMNS = None
+
+
+def _load_log_preprocessor() -> tuple[Any, list[str], list[str]]:
+    global _LOG_PREPROCESSOR, _RAW_FEATURE_COLUMNS, _TRANSFORMED_FEATURE_COLUMNS
+
+    if _LOG_PREPROCESSOR is None or _RAW_FEATURE_COLUMNS is None:
+        artifact = joblib.load(PREPROCESSOR_PATH)
+        _LOG_PREPROCESSOR = artifact["pipeline"]
+        _RAW_FEATURE_COLUMNS = artifact["feature_columns"]
+        _TRANSFORMED_FEATURE_COLUMNS = list(_LOG_PREPROCESSOR.get_feature_names_out())
+
+    return _LOG_PREPROCESSOR, _RAW_FEATURE_COLUMNS, _TRANSFORMED_FEATURE_COLUMNS
+
+
+def _prepare_log_features(input_data: dict[str, Any]) -> dict[str, Any]:
+    raw_df = pd.DataFrame([input_data])
+    validated_df, _ = clean_raw_dataframe(raw_df)
+    feature_source_df, _ = prepare_feature_inputs(validated_df)
+
+    preprocessor, raw_feature_columns, transformed_feature_columns = _load_log_preprocessor()
+    model_input_df = feature_source_df.reindex(columns=raw_feature_columns, fill_value=0)
+    transformed = preprocessor.transform(model_input_df)
+
+    transformed_df = pd.DataFrame(
+        transformed,
+        columns=transformed_feature_columns,
+        index=model_input_df.index,
+    )
+    return transformed_df.iloc[0].to_dict()
 
 
 def log_inference(input_data: dict, prediction):
+    try:
+        processed_input = _prepare_log_features(input_data)
+    except Exception:
+        processed_input = input_data.copy()
+
     log_entry = {
-        **input_data,
+        **processed_input,
         "prediction": prediction,
-        "timestamp": datetime.now()
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     df = pd.DataFrame([log_entry])
 
     if os.path.exists(INFERENCE_LOG_PATH):
-        df.to_csv(INFERENCE_LOG_PATH, mode='a', header=False, index=False)
+        df.to_csv(INFERENCE_LOG_PATH, mode="a", header=False, index=False)
     else:
         os.makedirs(os.path.dirname(INFERENCE_LOG_PATH), exist_ok=True)
         df.to_csv(INFERENCE_LOG_PATH, index=False)
-
-    _maybe_trigger_drift_report()
-
-
-def _maybe_trigger_drift_report():
-    if not os.path.exists(INFERENCE_LOG_PATH):
-        return
-    try:
-        row_count = sum(1 for _ in open(INFERENCE_LOG_PATH)) - 1  # subtract header
-    except OSError:
-        return
-    if row_count > 0 and row_count % DRIFT_REPORT_TRIGGER_EVERY == 0:
-        subprocess.Popen(
-            [
-                "python", "src/mlops_project/monitoring/create_drift_report.py",
-                "--current", INFERENCE_LOG_PATH,
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )

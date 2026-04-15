@@ -1,0 +1,131 @@
+{
+  "id": null,
+  "uid": "drift-monitoring",
+  "title": "Customer Churn Drift Monitoring",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Retraining Recommended",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "drift_retrain_recommended", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "No"}, "1": {"text": "Yes"}}}
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Drifted Feature Fraction",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "drift_features_alert_fraction", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.2},
+              {"color": "red", "value": 0.3}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "KS / JS / PSI vs Critical Thresholds",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {"expr": "drift_numeric_ks_max", "refId": "A", "legendFormat": "KS Max"},
+        {"expr": "drift_categorical_js_max", "refId": "B", "legendFormat": "JS Max"},
+        {"expr": "drift_numeric_psi_max", "refId": "C", "legendFormat": "PSI Max"},
+        {"expr": "drift_threshold_ks", "refId": "D", "legendFormat": "KS Threshold"},
+        {"expr": "drift_threshold_js", "refId": "E", "legendFormat": "JS Threshold"},
+        {"expr": "drift_threshold_psi", "refId": "F", "legendFormat": "PSI Threshold"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Drifted Feature Fraction Over Time",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "targets": [
+        {"expr": "drift_features_alert_fraction", "refId": "A", "legendFormat": "Current Fraction"},
+        {"expr": "drift_threshold_feature_fraction", "refId": "B", "legendFormat": "Critical Fraction Threshold"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 0.3}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 5,
+      "type": "bargauge",
+      "title": "Per-Feature Drift State",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 9},
+      "targets": [
+        {
+          "expr": "drift_feature_state",
+          "refId": "A",
+          "legendFormat": "{{feature}} ({{feature_type}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showUnfilled": true
+      }
+    }
+  ],
+  "templating": {"list": []},
+  "annotations": {"list": []}
+}

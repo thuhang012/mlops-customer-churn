@@ -36,7 +36,7 @@ def _load_artifacts():
             raw_feature_columns = preprocessor_artifact["feature_columns"]
 
             transformed_feature_columns = list(preprocessor.get_feature_names_out())
-        
+
         except Exception as e:
             raise RuntimeError(f"Error loading model artifact: {str(e)}")
 
@@ -60,7 +60,7 @@ def artifacts_status() -> dict:
             "raw_feature_columns_available": False,
             "transformed_feature_columns_available": False,
         }
-    
+
 def _prepare_model_input(raw_df: pd.DataFrame) -> pd.DataFrame:
     validated_df, _ = clean_raw_dataframe(raw_df)
     feature_source_df, _ = prepare_feature_inputs(validated_df)

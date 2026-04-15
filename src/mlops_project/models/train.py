@@ -22,6 +22,8 @@ from catboost import CatBoostClassifier
 import logging
 from mlflow.tracking import MlflowClient
 
+import os
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -39,7 +41,7 @@ def parse_args():
     parser.add_argument(
         "--mlflow-tracking-uri",
         type=str,
-        default="http://127.0.0.1:5000",
+        default=os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000"),
         help="MLflow tracking URI",
     )
     return parser.parse_args()
@@ -180,6 +182,7 @@ def main(args):
                 "model": model,
                 "threshold": SELECTED_THRESHOLD,
                 "model_name": best_algo,
+                "feature_columns": list(X_train.columns),
             },
             save_path,
         )

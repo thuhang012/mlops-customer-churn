@@ -6,12 +6,27 @@ import pandas as pd
 
 
 REQUIRED_COLUMNS = {
-    "age_group",
-    "subscription_start_date",
-    "churn_status",
-    "watch_time_minutes",
-    "completion_percentage",
-    "date_watched",
+    "customerID",
+    "gender",
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "tenure",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
+    "MonthlyCharges",
+    "TotalCharges",
+    "Churn",
 }
 
 

@@ -49,6 +49,6 @@ def validate_data(data_path: str) -> bool:
 
 
 if __name__ == "__main__":
-    target_path = sys.argv[1] if len(sys.argv) > 1 else "data/raw/netflix_large.csv"
+    target_path = sys.argv[1] if len(sys.argv) > 1 else "data/raw/telcom_churn.csv"
     ok = validate_data(target_path)
     sys.exit(0 if ok else 1)

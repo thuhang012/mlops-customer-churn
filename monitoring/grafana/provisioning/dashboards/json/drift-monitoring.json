@@ -1,0 +1,402 @@
+{
+  "id": null,
+  "uid": "drift-monitoring",
+  "title": "Customer Churn Monitoring",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Retraining Recommended",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "drift_retrain_recommended", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "No"}, "1": {"text": "Yes"}}}
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Drifted Feature Fraction",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "drift_features_alert_fraction", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.2},
+              {"color": "red", "value": 0.3}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "API Request Rate (RPS)",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m]))", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 0.05},
+              {"color": "green", "value": 0.2}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "API 5xx Error Ratio",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\",status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m])), 0.001)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.02},
+              {"color": "red", "value": 0.05}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "KS / JS / PSI vs Critical Thresholds",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "targets": [
+        {"expr": "drift_numeric_ks_max", "refId": "A", "legendFormat": "KS Max"},
+        {"expr": "drift_categorical_js_max", "refId": "B", "legendFormat": "JS Max"},
+        {"expr": "drift_numeric_psi_max", "refId": "C", "legendFormat": "PSI Max"},
+        {"expr": "drift_threshold_ks", "refId": "D", "legendFormat": "KS Threshold"},
+        {"expr": "drift_threshold_js", "refId": "E", "legendFormat": "JS Threshold"},
+        {"expr": "drift_threshold_psi", "refId": "F", "legendFormat": "PSI Threshold"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Drifted Feature Fraction Over Time",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "targets": [
+        {"expr": "drift_features_alert_fraction", "refId": "A", "legendFormat": "Current Fraction"},
+        {"expr": "drift_threshold_feature_fraction", "refId": "B", "legendFormat": "Critical Fraction Threshold"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 0.3}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 5,
+      "type": "bargauge",
+      "title": "Per-Feature Drift State",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 13},
+      "targets": [
+        {
+          "expr": "drift_feature_state",
+          "refId": "A",
+          "legendFormat": "{{feature}} ({{feature_type}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "API Latency p95 / p99",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(api_request_latency_seconds_bucket{endpoint=~\"/predict|/batch-predict\"}[5m])))",
+          "refId": "A",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(api_request_latency_seconds_bucket{endpoint=~\"/predict|/batch-predict\"}[5m])))",
+          "refId": "B",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.5},
+              {"color": "red", "value": 1.0}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "API Request Classes",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
+      "targets": [
+        {
+          "expr": "sum by (status_class) (rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "{{status_class}}"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Data Quality Metrics",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 29},
+      "targets": [
+        {"expr": "dq_missing_ratio", "refId": "A", "legendFormat": "Missing Ratio"},
+        {"expr": "dq_unseen_category_ratio", "refId": "B", "legendFormat": "Unseen Category Ratio"},
+        {"expr": "dq_out_of_range_ratio", "refId": "C", "legendFormat": "Out-of-Range Ratio"},
+        {"expr": "dq_schema_violation_fraction", "refId": "D", "legendFormat": "Schema Violation Fraction"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.05},
+              {"color": "red", "value": 0.1}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Data Freshness Lag (seconds)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 29},
+      "targets": [
+        {"expr": "dq_freshness_lag_seconds", "refId": "A", "legendFormat": "Lag Seconds"},
+        {"expr": "dq_threshold_freshness_lag_seconds", "refId": "B", "legendFormat": "Lag Threshold"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 600},
+              {"color": "red", "value": 1800}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Model Quality: Positive Rate / Low Confidence",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 37},
+      "targets": [
+        {"expr": "model_prediction_positive_rate", "refId": "A", "legendFormat": "Positive Rate"},
+        {"expr": "model_low_confidence_fraction", "refId": "B", "legendFormat": "Low Confidence Fraction"},
+        {"expr": "model_threshold_positive_rate_min", "refId": "C", "legendFormat": "Positive Min"},
+        {"expr": "model_threshold_positive_rate_max", "refId": "D", "legendFormat": "Positive Max"},
+        {"expr": "model_threshold_low_confidence_fraction", "refId": "E", "legendFormat": "Low Confidence Threshold"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.3},
+              {"color": "red", "value": 0.4}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Model Prediction Distribution",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 37},
+      "targets": [
+        {"expr": "model_prediction_mean", "refId": "A", "legendFormat": "Prediction Mean"},
+        {"expr": "model_prediction_std", "refId": "B", "legendFormat": "Prediction Std"},
+        {"expr": "model_prediction_count", "refId": "C", "legendFormat": "Prediction Count"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Infrastructure: CPU by Container (cores)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 45},
+      "targets": [
+        {
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",name=~\".+\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "cores"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Infrastructure: Memory Usage Ratio",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 45},
+      "targets": [
+        {
+          "expr": "(container_memory_working_set_bytes{job=\"cadvisor\",name=~\".+\"} / clamp_min(container_spec_memory_limit_bytes{job=\"cadvisor\",name=~\".+\"}, 1))",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.8},
+              {"color": "red", "value": 0.9}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Infrastructure Events (OOM / Restart / Net Errors)",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 53},
+      "targets": [
+        {
+          "expr": "sum by (name) (increase(container_oom_events_total{job=\"cadvisor\",name=~\".+\"}[15m]))",
+          "refId": "A",
+          "legendFormat": "OOM {{name}}"
+        },
+        {
+          "expr": "sum by (name) (changes(container_start_time_seconds{job=\"cadvisor\",name=~\".+\"}[15m]))",
+          "refId": "B",
+          "legendFormat": "Restart {{name}}"
+        },
+        {
+          "expr": "sum by (name) (rate(container_network_receive_errors_total{job=\"cadvisor\",name=~\".+\"}[5m]) + rate(container_network_transmit_errors_total{job=\"cadvisor\",name=~\".+\"}[5m]))",
+          "refId": "C",
+          "legendFormat": "Net Err {{name}}"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 17,
+      "type": "alertlist",
+      "title": "Active Alerts",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 61},
+      "options": {
+        "viewMode": "list",
+        "groupMode": "default",
+        "maxItems": 50,
+        "sortOrder": 1,
+        "show": "current"
+      }
+    }
+  ],
+  "templating": {"list": []},
+  "annotations": {"list": []}
+}

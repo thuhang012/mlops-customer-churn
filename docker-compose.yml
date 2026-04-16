@@ -25,6 +25,108 @@ services:
       mlflow:
         condition: service_healthy
 
+  drift-exporter:
+    build: .
+    container_name: drift_metrics_exporter
+    command:
+      [
+        "python",
+        "src/mlops_project/monitoring/drift_metrics_exporter.py",
+        "--port",
+        "9108",
+        "--poll-interval",
+        "10",
+        "--fast-interval",
+        "300",
+        "--slow-interval",
+        "1800",
+        "--fast-refresh-interval",
+        "60",
+        "--medium-refresh-interval",
+        "300",
+        "--min-new-rows",
+        "100",
+        "--current-window-size",
+        "5000"
+      ]
+    ports:
+      - "9108:9108"
+    networks:
+      - mlops_bridge
+    volumes:
+      - ./src:/home/user/app/src
+      - ./data:/home/user/app/data
+      - ./artifacts:/home/user/app/artifacts
+    environment:
+      - PYTHONPATH=/home/user/app/src
+    depends_on:
+      - api
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    networks:
+      - mlops_bridge
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - drift-exporter
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    ports:
+      - "8081:8080"
+    networks:
+      - mlops_bridge
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    depends_on:
+      - api
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - mlops_bridge
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+
+  grafana:
+    image: grafana/grafana-oss:11.1.4
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - mlops_bridge
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+
   # Service 2: MLflow Tracking Server cho M2
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.12.1
@@ -58,3 +160,6 @@ networks:
 # Kho chứa data vĩnh viễn cho MLflow
 volumes:
   mlflow_db_v3:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:

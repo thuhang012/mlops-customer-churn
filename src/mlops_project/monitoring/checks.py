@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 
-DEFAULT_REFERENCE_PATH = Path("data/processed/cleaned_data_linear.csv")
+DEFAULT_REFERENCE_PATH = Path("data/processed/cleaned_data_tree.csv")
 DEFAULT_PRODUCTION_LOG_PATH = Path("data/processed/inference_log.csv")
 DEFAULT_BASELINE_METRICS_PATH = Path("artifacts/baseline/metrics.json")
 DEFAULT_CURRENT_METRICS_PATH = Path("artifacts/metrics/metrics.json")

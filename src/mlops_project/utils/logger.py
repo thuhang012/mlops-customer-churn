@@ -9,6 +9,7 @@ from src.mlops_project.data.validate_data import clean_raw_dataframe
 from src.mlops_project.features.build_features import prepare_feature_inputs
 
 INFERENCE_LOG_PATH = "data/processed/inference_log.csv"
+INFERENCE_LOG_RAW_PATH = "data/processed/inference_log_raw.csv"
 PREPROCESSOR_PATH = os.getenv("PREPROCESSOR_PATH", "artifacts/preprocessors/preprocessor.pkl")
 
 
@@ -46,22 +47,36 @@ def _prepare_log_features(input_data: dict[str, Any]) -> dict[str, Any]:
     return transformed_df.iloc[0].to_dict()
 
 
+def _append_log_entry(path: str, log_entry: dict[str, Any]) -> None:
+    df = pd.DataFrame([log_entry])
+
+    if os.path.exists(path):
+        df.to_csv(path, mode="a", header=False, index=False)
+        return
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    df.to_csv(path, index=False)
+
+
 def log_inference(input_data: dict, prediction):
+    timestamp = datetime.now(timezone.utc).isoformat()
+
+    raw_log_entry = {
+        **input_data,
+        "prediction": prediction,
+        "timestamp": timestamp,
+    }
+
     try:
         processed_input = _prepare_log_features(input_data)
     except Exception:
         processed_input = input_data.copy()
 
-    log_entry = {
+    processed_log_entry = {
         **processed_input,
         "prediction": prediction,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": timestamp,
     }
 
-    df = pd.DataFrame([log_entry])
-
-    if os.path.exists(INFERENCE_LOG_PATH):
-        df.to_csv(INFERENCE_LOG_PATH, mode="a", header=False, index=False)
-    else:
-        os.makedirs(os.path.dirname(INFERENCE_LOG_PATH), exist_ok=True)
-        df.to_csv(INFERENCE_LOG_PATH, index=False)
+    _append_log_entry(INFERENCE_LOG_RAW_PATH, raw_log_entry)
+    _append_log_entry(INFERENCE_LOG_PATH, processed_log_entry)

@@ -16,7 +16,7 @@ app = FastAPI(
     description="FastAPI service for churn prediction",
 )
 
-Instrumentator().instrument(app).expose(app)
+
 
 API_REQUESTS_TOTAL = Counter(
     "api_requests_total",
@@ -158,3 +158,6 @@ def batch_predict_churn(data: list[CustomerInput]):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Initialize instrumentation after all metrics are defined
+Instrumentator().instrument(app).expose(app, include_in_schema=False)

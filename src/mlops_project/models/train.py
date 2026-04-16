@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         "--mlflow-tracking-uri",
         type=str,
-        default=os.getenv("MLFLOW_TRACKING_URI", "file:./mlruns_local"),
+        default=os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"),
         help="MLflow tracking URI",
     )
     return parser.parse_args()
@@ -178,8 +178,8 @@ def main(args):
 
         try:
             client.create_registered_model(model_name)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Model '{model_name}' already exists or registration skipped: {e}")
 
         mv = None
         try:

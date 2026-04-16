@@ -20,6 +20,9 @@ dependencies = [
     "lightgbm",
     "catboost",
     "dvc",
+    "prometheus-fastapi-instrumentator",
+    "prometheus_client>=0.20.0",
+    "scipy>=1.10.0",
 ]
 
 [project.optional-dependencies]

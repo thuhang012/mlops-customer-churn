@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: churn-api-monitor
+  labels:
+    release: prom
+spec:
+  selector:
+    matchLabels:
+      app: churn-api
+  endpoints:
+  - port: http-metrics
+    path: /metrics
+    interval: 15s
+    scrapeTimeout: 10s
+  - port: drift-metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 20s

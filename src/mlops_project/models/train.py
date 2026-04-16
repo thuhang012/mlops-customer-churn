@@ -65,7 +65,7 @@ def main(args):
         config = yaml.safe_load(f)
 
     # Trích xuất thông tin từ cấu trúc YAML của bạn
-    model_name = config.get("project", "Netflix_Churn_Model")
+    model_name = config.get("project", "Telco_Churn_Model")
     best_algo = config.get("best_model_overall")
     params = config.get("hyperparameters")
 

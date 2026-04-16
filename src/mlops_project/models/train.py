@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         "--mlflow-tracking-uri",
         type=str,
-        default=os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000"),
+        default=os.getenv("MLFLOW_TRACKING_URI", "file:./mlruns_local"),
         help="MLflow tracking URI",
     )
     return parser.parse_args()
@@ -153,12 +153,23 @@ def main(args):
         mlflow.log_param("selected_threshold", SELECTED_THRESHOLD)
 
         # 4. Log Model dựa trên thuật toán
+        explicit_reqs = [
+            "mlflow",
+            "numpy",
+            "pandas",
+            "scikit-learn",
+            "cloudpickle",
+            "xgboost",
+            "lightgbm",
+            "catboost",
+        ]
+
         if best_algo == "LightGBM":
-            mlflow.lightgbm.log_model(model, "tuned_model")
+            mlflow.lightgbm.log_model(model, "tuned_model", pip_requirements=explicit_reqs)
         elif best_algo == "XGBoost":
-            mlflow.xgboost.log_model(model, "tuned_model")
+            mlflow.xgboost.log_model(model, "tuned_model", pip_requirements=explicit_reqs)
         else:
-            mlflow.sklearn.log_model(model, "tuned_model")
+            mlflow.sklearn.log_model(model, "tuned_model", pip_requirements=explicit_reqs)
 
         # 5. Đăng ký vào Registry
         run_id = mlflow.active_run().info.run_id
@@ -170,8 +181,12 @@ def main(args):
         except Exception:
             pass
 
-        mv = client.create_model_version(name=model_name, source=model_uri, run_id=run_id)
-        client.transition_model_version_stage(name=model_name, version=mv.version, stage="Staging")
+        mv = None
+        try:
+            mv = client.create_model_version(name=model_name, source=model_uri, run_id=run_id)
+            client.transition_model_version_stage(name=model_name, version=mv.version, stage="Staging")
+        except Exception as e:
+            logger.warning(f"Skipping model registry operations: {e}")
 
         # 6. Lưu file .pkl cục bộ
 
@@ -188,7 +203,10 @@ def main(args):
         )
 
         logger.info("-" * 30)
-        logger.info(f"DONE: Model {model_name} registered (v{mv.version})")
+        if mv is not None:
+            logger.info(f"DONE: Model {model_name} registered (v{mv.version})")
+        else:
+            logger.info(f"DONE: Model {model_name} trained and logged without registry version")
         logger.info(f"FILE SAVED: {save_path}")
         logger.info(f"Decision threshold saved: {SELECTED_THRESHOLD}")
         logger.info(f"PR-AUC: {metrics['pr_auc']:.4f}")

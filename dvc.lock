@@ -51,10 +51,10 @@ stages:
       size: 1481067
     - path: src/mlops_project/models/train.py
       hash: md5
-      md5: b7db952d7bdd7f43d4bb162939b376e7
-      size: 7509
+      md5: 2f349c59e68c24b30eba0cc558842203
+      size: 7507
     outs:
     - path: artifacts/models/Telco_Churn_Model_final.pkl
       hash: md5
-      md5: 85cb65ba098ff0b1549b4461902f37a7
+      md5: 542739eecfe2d750ea4eb33e390a02f6
       size: 223300

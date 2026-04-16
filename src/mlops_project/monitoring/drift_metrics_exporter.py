@@ -424,7 +424,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--reference",
         type=Path,
-        default=Path("data/processed/cleaned_data_linear.csv"),
+        default=Path("data/processed/cleaned_data_tree.csv"),
         help="Reference dataset CSV",
     )
     parser.add_argument(

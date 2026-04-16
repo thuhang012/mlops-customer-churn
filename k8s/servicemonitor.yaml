@@ -3,7 +3,7 @@ kind: ServiceMonitor
 metadata:
   name: churn-api-monitor
   labels:
-    release: prometheus
+    release: prom
 spec:
   selector:
     matchLabels:
@@ -13,3 +13,7 @@ spec:
     path: /metrics
     interval: 15s
     scrapeTimeout: 10s
+  - port: drift-metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 20s

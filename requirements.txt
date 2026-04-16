@@ -29,4 +29,7 @@ pip-audit
 great-expectations
 evidently
 
+# Prometheus monitoring
 prometheus-fastapi-instrumentator
+prometheus_client>=0.20.0
+scipy>=1.10.0

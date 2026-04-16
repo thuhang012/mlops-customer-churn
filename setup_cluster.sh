@@ -41,7 +41,7 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo update
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
   --namespace default \
-  -f k8s/monitoring-values.yaml
+  -f deployment/monitoring-values.yaml
 
 echo "🛠️ Applying application manifests..."
 kubectl apply -f k8s/api-deployment.yaml

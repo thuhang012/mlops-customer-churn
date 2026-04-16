@@ -43,7 +43,7 @@ Remove-Item temp-secret.yaml
 Write-Host "Bootstrapping Prometheus/Grafana Stack..." -ForegroundColor Cyan
 & helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 & helm repo update
-& helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace default -f k8s/monitoring-values.yaml
+& helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace default -f deployment/monitoring-values.yaml
 
 Write-Host "Applying application manifests..." -ForegroundColor Cyan
 & kubectl apply -f k8s/api-deployment.yaml

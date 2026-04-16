@@ -82,6 +82,31 @@ spec:
         - name: churn-storage
           mountPath: /home/user/app/artifacts
           subPath: artifacts
+      - name: drift-exporter
+        image: churn-api:v1
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            source /opt/venv/bin/activate &&
+            python -m src.mlops_project.monitoring.drift_metrics_exporter --port 9108
+        ports:
+        - name: drift-metrics
+          containerPort: 9108
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: churn-storage
+          mountPath: /home/user/app/data/processed
+          subPath: data-processed
+        - name: churn-storage
+          mountPath: /home/user/app/artifacts
+          subPath: artifacts
       volumes:
       - name: churn-storage
         persistentVolumeClaim:

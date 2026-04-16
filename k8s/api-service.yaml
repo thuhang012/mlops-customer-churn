@@ -13,3 +13,6 @@ spec:
     port: 8000
     targetPort: 8000
     nodePort: 30100
+  - name: drift-metrics
+    port: 9108
+    targetPort: 9108

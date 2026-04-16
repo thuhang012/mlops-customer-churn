@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         "--mlflow-tracking-uri",
         type=str,
-        default=os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000"),
+        default=os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"),
         help="MLflow tracking URI",
     )
     return parser.parse_args()

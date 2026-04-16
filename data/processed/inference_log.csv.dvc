@@ -1,5 +1,5 @@
 outs:
-- md5: f7191422fcb63cb6ad6ad6dd421233d9
-  size: 219616
+- md5: d235b5b9083137820cb2dd673879a02d
+  size: 56230
   hash: md5
   path: inference_log.csv

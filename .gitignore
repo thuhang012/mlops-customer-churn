@@ -45,6 +45,7 @@ catboost_info/
 # MLFLOW
 # =========================
 
+mlruns_local/
 mlartifacts/
 mlflow.db
 mlflowdb/

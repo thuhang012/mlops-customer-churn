@@ -60,8 +60,10 @@ COPY --chown=user:user data/ ./data/
 COPY --chown=user:user artifacts/ ./artifacts/
 COPY --chown=user:user dvc.yaml dvc.lock ./
 COPY --chown=user:user .dvc/ ./.dvc/
+COPY --chown=user:user streamlit_app/ ./streamlit_app/
 
 EXPOSE 8000
+EXPOSE 8501
 
 # Executing the bootstrap
 ENTRYPOINT ["bash", "scripts/entrypoint.sh"]

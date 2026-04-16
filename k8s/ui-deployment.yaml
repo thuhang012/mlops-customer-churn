@@ -14,16 +14,36 @@ spec:
       labels:
         app: churn-ui
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: mlops-cluster-control-plane
+      tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
       containers:
       - name: churn-ui
-        image: busybox:1.28
-        command: ["sh", "-c", "echo 'UI placeholder running...'; sleep 3600"]
+        image: churn-api:v1
+        env:
+        - name: APP_ROLE
+          value: "ui"
+        - name: API_URL
+          value: "http://churn-api-svc:8000"
+        - name: DAGSHUB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dagshub-secret
+              key: username
+        - name: DAGSHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dagshub-secret
+              key: token
         ports:
         - containerPort: 8501
         resources:
           limits:
-            memory: "256Mi"
+            memory: "512Mi"
             cpu: "200m"
           requests:
-            memory: "64Mi"
+            memory: "128Mi"
             cpu: "50m"

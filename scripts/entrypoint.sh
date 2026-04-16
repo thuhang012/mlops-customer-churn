@@ -66,4 +66,10 @@ echo "[Production Boot] System Health: OK. Serving API... 🚀"
 echo "============================================================"
 
 # Phase 4: Serving
-exec uvicorn mlops_project.api.serve:app --host 0.0.0.0 --port 8000
+if [ "$APP_ROLE" = "ui" ]; then
+    echo "[Boot: Serving] Starting Streamlit UI..."
+    exec streamlit run streamlit_app/app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false
+else
+    echo "[Boot: Serving] Starting FastAPI API..."
+    exec uvicorn src.mlops_project.api.serve:app --host 0.0.0.0 --port 8000
+fi

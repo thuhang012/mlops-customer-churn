@@ -9,7 +9,7 @@ from src.mlops_project.data.validate_data import clean_raw_dataframe
 from src.mlops_project.features.build_features import prepare_feature_inputs
 
 INFERENCE_LOG_PATH = "data/processed/inference_log.csv"
-INFERENCE_LOG_RAW_PATH = "data/processed/inference_log_raw.csv"
+INFERENCE_LOG_RAW_PATH = "data/raw/inference_log_raw.csv"
 PREPROCESSOR_PATH = os.getenv("PREPROCESSOR_PATH", "artifacts/preprocessors/preprocessor.pkl")
 
 

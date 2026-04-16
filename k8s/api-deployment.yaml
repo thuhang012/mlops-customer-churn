@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: churn-pvc
+  labels:
+    app: churn-api
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: churn-api
+  labels:
+    app: churn-api
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: churn-api
+  template:
+    metadata:
+      labels:
+        app: churn-api
+    spec:
+      initContainers:
+      - name: wait-for-mlflow
+        image: busybox:1.28
+        command: ['sh', '-c', 'until nc -z mlflow 5000; do echo waiting for mlflow; sleep 2; done;']
+      containers:
+      - name: churn-api
+        image: churn-api:v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http-metrics
+          containerPort: 8000
+        env:
+        - name: MLFLOW_TRACKING_URI
+          value: "http://mlflow:5000"
+        - name: DAGSHUB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dagshub-secret
+              key: username
+        - name: DAGSHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dagshub-secret
+              key: token
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http-metrics
+          initialDelaySeconds: 300
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http-metrics
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: churn-storage
+          mountPath: /home/user/app/data/processed
+          subPath: data-processed
+        - name: churn-storage
+          mountPath: /home/user/app/artifacts
+          subPath: artifacts
+      volumes:
+      - name: churn-storage
+        persistentVolumeClaim:
+          claimName: churn-pvc

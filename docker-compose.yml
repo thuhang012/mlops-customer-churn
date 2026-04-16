@@ -16,10 +16,12 @@ services:
       - ./data:/home/user/app/data
       - ./artifacts:/home/user/app/artifacts
       - ./monitoring:/home/user/app/monitoring
+    env_file:
+      - .env
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - PYTHONPATH=/home/user/app/src
-      - DAGSHUB_USERNAME=${DAGSHUB_USER:-}
+      - DAGSHUB_USERNAME=${DAGSHUB_USERNAME:-${DAGSHUB_USER:-}}
       - DAGSHUB_TOKEN=${DAGSHUB_TOKEN:-}
     depends_on:
       mlflow:

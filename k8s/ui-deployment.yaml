@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: churn-ui
+  labels:
+    app: churn-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: churn-ui
+  template:
+    metadata:
+      labels:
+        app: churn-ui
+    spec:
+      containers:
+      - name: churn-ui
+        image: busybox:1.28
+        command: ["sh", "-c", "echo 'UI placeholder running...'; sleep 3600"]
+        ports:
+        - containerPort: 8501
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+          requests:
+            memory: "64Mi"
+            cpu: "50m"

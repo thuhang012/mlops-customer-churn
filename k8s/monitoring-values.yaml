@@ -1,0 +1,25 @@
+grafana:
+  enabled: true
+  persistence:
+    enabled: true
+    storageClassName: standard
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+  service:
+    type: NodePort
+    nodePort: 30200
+
+prometheus:
+  prometheusSpec:
+    persistence:
+      enabled: true
+      storageClassName: standard
+      accessModes:
+        - ReadWriteOnce
+      size: 5Gi
+    # Automatically pick up ServiceMonitors from any namespace if false
+    serviceMonitorSelectorNilUsesHelmValues: false
+  service:
+    type: NodePort
+    nodePort: 30300

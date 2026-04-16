@@ -35,11 +35,15 @@ services:
         "--port",
         "9108",
         "--poll-interval",
-        "30",
+        "10",
         "--fast-interval",
         "300",
         "--slow-interval",
         "1800",
+        "--fast-refresh-interval",
+        "60",
+        "--medium-refresh-interval",
+        "300",
         "--min-new-rows",
         "100",
         "--current-window-size",
@@ -75,6 +79,21 @@ services:
       - prometheus_data:/prometheus
     depends_on:
       - drift-exporter
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    ports:
+      - "8081:8080"
+    networks:
+      - mlops_bridge
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    depends_on:
+      - api
 
   alertmanager:
     image: prom/alertmanager:v0.27.0

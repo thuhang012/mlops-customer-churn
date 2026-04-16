@@ -178,8 +178,8 @@ def main(args):
 
         try:
             client.create_registered_model(model_name)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Model '{model_name}' already exists or registration skipped: {e}")
 
         mv = None
         try:

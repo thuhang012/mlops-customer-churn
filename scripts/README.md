@@ -11,8 +11,8 @@ scripts/
 │   └── quality_gate.py       # Quality gate checks
 ├── training/            # Model registration utilities
 │   └── register_model.py      # Register trained model
-└── monitoring/          # Production monitoring
-    └── checks.py             # Drift & performance checks
+
+Note: production monitoring code is in src/mlops_project/monitoring/.
 ```
 
 ## 🔧 Usage
@@ -116,7 +116,7 @@ python scripts/training/register_model.py \
 
 ### Monitoring Checks
 ```bash
-python scripts/monitoring/checks.py
+python src/mlops_project/monitoring/checks.py
 ```
 
 **Outputs:**

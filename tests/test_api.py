@@ -75,13 +75,13 @@ def _is_model_artifact_fitted() -> bool:
         return False
 
 
-def test_root():
+def test_api_root_returns_welcome_message():
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"message": "Churn Prediction API is running"}
 
 
-def test_health_check():
+def test_api_health_reports_ok_and_loaded_artifacts():
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
@@ -90,7 +90,7 @@ def test_health_check():
     assert data.get("preprocessor_loaded") is True
 
 
-def test_predict_success():
+def test_api_predict_single_respects_model_fit_state():
     sample_payload = _load_real_payloads()[0]
     response = client.post("/predict", json=sample_payload)
 
@@ -107,7 +107,7 @@ def test_predict_success():
         assert "not fitted" in detail.lower()
 
 
-def test_batch_predict_success():
+def test_api_predict_batch_respects_model_fit_state():
     payloads = _load_real_payloads()
     response = client.post("/batch-predict", json=payloads)
 
@@ -124,7 +124,7 @@ def test_batch_predict_success():
         assert "not fitted" in detail.lower()
 
 
-def test_predict_missing_field():
+def test_api_predict_rejects_missing_required_field():
     sample_payload = _load_real_payloads()[0]
     bad_payload = sample_payload.copy()
     bad_payload.pop("gender")
@@ -134,7 +134,7 @@ def test_predict_missing_field():
     assert response.status_code == 422
 
 
-def test_predict_invalid_type():
+def test_api_predict_rejects_invalid_field_type():
     sample_payload = _load_real_payloads()[0]
     bad_payload = sample_payload.copy()
     bad_payload["monthly_fee"] = "abc"

@@ -51,7 +51,7 @@ class CustomerInput(BaseModel):
         if v in ("", " ", None):
             raise ValueError("Value is required")
         return float(v)
-    
+
 class PredictionOutput(BaseModel):
     churn_probability: float = Field(..., ge=0.0, le=1.0)
     prediction: int = Field(..., ge=0, le=1)

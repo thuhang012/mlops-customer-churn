@@ -160,7 +160,7 @@ python -m pytest tests/ --cov=src
 python -m pytest tests/test_api.py -v
 
 # Run specific test function
-python -m pytest tests/test_api.py::test_health_endpoint -v
+python -m pytest tests/test_api.py::test_api_health_reports_ok_and_loaded_artifacts -v
 
 # Stop on first failure
 python -m pytest tests/ -x

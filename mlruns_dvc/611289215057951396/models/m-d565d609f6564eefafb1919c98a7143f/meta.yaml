@@ -1,0 +1,11 @@
+artifact_location: file:C:/Users/Admins/MLOpsProject/mlruns_dvc/611289215057951396/models/m-d565d609f6564eefafb1919c98a7143f/artifacts
+creation_timestamp: 1776315493495
+experiment_id: '611289215057951396'
+last_updated_timestamp: 1776315493495
+lifecycle_stage: active
+model_id: m-d565d609f6564eefafb1919c98a7143f
+model_type: null
+name: tuned_model
+source_run_id: 12f4564daf29462aac1257de45626b44
+status: 1
+status_message: null

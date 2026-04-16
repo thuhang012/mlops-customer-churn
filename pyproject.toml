@@ -18,6 +18,7 @@ dependencies = [
     "optuna",
     "xgboost",
     "lightgbm",
+    "catboost",
     "dvc",
     "prometheus-fastapi-instrumentator",
     "prometheus_client>=0.20.0",

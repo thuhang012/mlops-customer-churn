@@ -30,3 +30,4 @@ great-expectations
 evidently
 
 prometheus-fastapi-instrumentator
+streamlit

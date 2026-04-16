@@ -18,6 +18,5 @@ stages:
       - configs/best_model.yaml
       - data/processed/cleaned_data_tree.csv
       - src/mlops_project/models/train.py
-      - src/mlops_project/models/evaluate.py
     outs:
       - artifacts/models/Telco_Churn_Model_final.pkl

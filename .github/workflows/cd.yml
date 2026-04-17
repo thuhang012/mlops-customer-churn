@@ -35,7 +35,11 @@ jobs:
 
       - name: Run container
         run: |
-          docker run -d --name mlops-api-test -p 8000:8000 -e CI_SMOKE_MODE=true mlops-project-api:cd
+          docker run -d --name mlops-api-test -p 8000:8000 \
+            -e CI_SMOKE_MODE=true \
+            -e DAGSHUB_USERNAME=${{ secrets.DAGSHUB_USERNAME }} \
+            -e DAGSHUB_TOKEN=${{ secrets.DAGSHUB_TOKEN }} \
+            mlops-project-api:cd
           sleep 5
 
       - name: Smoke test health endpoint

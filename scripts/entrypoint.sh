@@ -5,75 +5,71 @@ echo "============================================================"
 echo "[Production Boot] Initializing MLOps Pipeline..."
 echo "============================================================"
 
-if [ "${CI_SMOKE_MODE:-false}" = "true" ]; then
-    echo "[CD Smoke Mode] Skipping DVC sync and training bootstrap."
-    exec uvicorn mlops_project.api.serve:app --host 0.0.0.0 --port 8000
-fi
-
 # Paths setup
-DATASET_PATH="data/raw/netflix_large.csv"
-MODEL_PATH="artifacts/models/Netflix_Prediction_final.pkl"
+DVC_FILE="data/raw/telcom_churn.csv.dvc"
+MODEL_PATH="artifacts/models/Telco_Churn_Model_final.pkl"
 
-if [ ! -f "$MODEL_PATH" ] || [ ! -f "$DATASET_PATH" ]; then
-    echo "[Boot: DVC] Missing local model or dataset, checking DagsHub credentials..."
-    if [ -z "$DAGSHUB_USERNAME" ] || [ -z "$DAGSHUB_TOKEN" ]; then
-        echo "❌ FATAL ERROR: Missing DAGSHUB_USERNAME or DAGSHUB_TOKEN."
-        exit 1
-    fi
-
-    # Step 1: DVC Auth Configuration
-    # Ensure DVC local config uses no-scm mode because .git is ignored in Docker
-    dvc config core.no_scm true
-    dvc remote modify origin --local auth basic
-    dvc remote modify origin --local user "$DAGSHUB_USERNAME"
-    dvc remote modify origin --local password "$DAGSHUB_TOKEN"
-
-    echo "[Boot: DVC] Synchronizing Data..."
-    if dvc pull -r origin -v -f; then
-        echo "✅ DVC Sync successful from remote."
-    else
-        echo "⚠️  Warning: DVC pull failed or data missing on remote. Continuing with local artifacts if available..."
-    fi
-else
-    echo "✅ Active model and dataset found locally. Skipping DVC auth and pull."
+# Phase 1: DVC
+echo "[Boot: DVC] Synchronizing Data..."
+if [ -z "$DAGSHUB_USERNAME" ] || [ -z "$DAGSHUB_TOKEN" ]; then
+    echo "❌ FATAL ERROR: Missing DAGSHUB_USERNAME or DAGSHUB_TOKEN."
+    exit 1
 fi
 
-echo "[Boot: MLflow] Connecting to Tracking URI: ${MLFLOW_TRACKING_URI:-Unknown}"
+dvc config core.no_scm true
+dvc config core.analytics false
+export DVC_NO_ANALYTICS=true
+dvc remote modify origin --local auth basic
+dvc remote modify origin --local user "$DAGSHUB_USERNAME"
+dvc remote modify origin --local password "$DAGSHUB_TOKEN"
 
-# Step 2: Conditional Training Logic
-if [ ! -f "$MODEL_PATH" ]; then
+if ! dvc pull "$DVC_FILE" -v -f; then
+    echo "❌ FATAL ERROR: DVC pull failed for $DVC_FILE."
+    exit 1
+fi
+echo "✅ DVC Sync successful."
+
+# Phase 2: Conditional Training Logic
+if [ -f "$MODEL_PATH" ]; then
+    echo "✅ Active Model found at $MODEL_PATH. Bypassing training sequence."
+else
     echo "⚠️ Target model not found at $MODEL_PATH. Initiating training..."
     
-    echo "[Boot: Pipeline] Phase 1 - Preprocessing..."
+    echo "[Boot: Pipeline] Phase 2 - Preprocessing..."
+    # Ensure it generates the 3 required outputs
     if ! python -m src.mlops_project.data.preprocess; then
         echo "❌ FATAL ERROR: Data Preprocessing failed."
         exit 1
     fi
     
     echo "[Boot: Pipeline] Phase 2 - Executing Core Training..."
+    mkdir -p artifacts/models
     if ! python src/mlops_project/models/train.py \
-        --config "artifacts/models/best_model_config.yaml" \
-        --data "data/processed/cleaned_data.csv" \
+        --config "configs/best_model.yaml" \
+        --data "data/processed/cleaned_data_tree.csv" \
         --models-dir "artifacts/models" \
         --mlflow-tracking-uri "${MLFLOW_TRACKING_URI}"; then
         echo "❌ FATAL ERROR: Model Training Process failed."
         exit 1
     fi
     
-    # We verify the models have actually been produced
+    # We verify the model has actually been produced
     if [ ! -f "$MODEL_PATH" ]; then
         echo "❌ FATAL ERROR: Training succeeded but model file $MODEL_PATH is missing."
         exit 1
     fi
     echo "✅ Model successfully generated."
-else
-    echo "✅ Active Model found at $MODEL_PATH. Bypassing training sequence."
 fi
 
 echo "============================================================"
 echo "[Production Boot] System Health: OK. Serving API... 🚀"
-echo "👉 Swagger UI is available at: http://localhost:8000/docs"
 echo "============================================================"
 
-# Step 3: Start Serving
-exec uvicorn mlops_project.api.serve:app --host 0.0.0.0 --port 8000
+# Phase 4: Serving
+if [ "$APP_ROLE" = "ui" ]; then
+    echo "[Boot: Serving] Starting Streamlit UI..."
+    exec streamlit run streamlit_app/app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false
+else
+    echo "[Boot: Serving] Starting FastAPI API..."
+    exec uvicorn src.mlops_project.api.serve:app --host 0.0.0.0 --port 8000
+fi

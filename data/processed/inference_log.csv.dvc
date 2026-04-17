@@ -1,0 +1,5 @@
+outs:
+- md5: d235b5b9083137820cb2dd673879a02d
+  size: 56230
+  hash: md5
+  path: inference_log.csv

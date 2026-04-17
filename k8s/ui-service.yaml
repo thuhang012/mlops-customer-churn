@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: churn-ui-svc
+  labels:
+    app: churn-ui
+spec:
+  type: NodePort
+  selector:
+    app: churn-ui
+  ports:
+  - name: http-ui
+    port: 8501
+    targetPort: 8501
+    nodePort: 30000

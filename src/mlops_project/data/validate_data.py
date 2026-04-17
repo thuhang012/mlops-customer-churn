@@ -29,6 +29,9 @@ TELCO_REQUIRED_FEATURE_COLUMNS = {
     "TotalCharges",
 }
 
+DRIFT_EXCLUDED_COLUMNS = {"customerID"}
+DRIFT_REQUIRED_FEATURE_COLUMNS = set(TELCO_REQUIRED_FEATURE_COLUMNS).difference(DRIFT_EXCLUDED_COLUMNS)
+
 TARGET_COLUMNS = (RAW_TARGET_COLUMN, "churn", TARGET_COLUMN)
 
 TELCO_COLUMN_ALIASES = {
@@ -241,3 +244,49 @@ def clean_raw_dataframe(
     report["remaining_missing_after_cleaning"] = remaining_missing
 
     return work_df, report
+
+
+def clean_drift_reference_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, object]]:
+    """Clean reference data for drift checks (expects target to exist)."""
+    cleaned_df, report = clean_raw_dataframe(
+        df,
+        strict_schema=False,
+        require_target=True,
+    )
+
+    missing_drift_columns = sorted(DRIFT_REQUIRED_FEATURE_COLUMNS.difference(cleaned_df.columns))
+    report["missing_drift_columns"] = missing_drift_columns
+    if missing_drift_columns:
+        raise ValueError(
+            "Input data is missing required drift columns: "
+            f"{missing_drift_columns}. Available columns: {list(cleaned_df.columns)}"
+        )
+
+    dropped_columns = [col for col in DRIFT_EXCLUDED_COLUMNS if col in cleaned_df.columns]
+    if dropped_columns:
+        cleaned_df = cleaned_df.drop(columns=dropped_columns)
+    report["dropped_drift_columns"] = dropped_columns
+    return cleaned_df, report
+
+
+def clean_drift_current_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, object]]:
+    """Clean current/inference data for drift checks (target optional)."""
+    cleaned_df, report = clean_raw_dataframe(
+        df,
+        strict_schema=False,
+        require_target=False,
+    )
+
+    missing_drift_columns = sorted(DRIFT_REQUIRED_FEATURE_COLUMNS.difference(cleaned_df.columns))
+    report["missing_drift_columns"] = missing_drift_columns
+    if missing_drift_columns:
+        raise ValueError(
+            "Input data is missing required drift columns: "
+            f"{missing_drift_columns}. Available columns: {list(cleaned_df.columns)}"
+        )
+
+    dropped_columns = [col for col in DRIFT_EXCLUDED_COLUMNS if col in cleaned_df.columns]
+    if dropped_columns:
+        cleaned_df = cleaned_df.drop(columns=dropped_columns)
+    report["dropped_drift_columns"] = dropped_columns
+    return cleaned_df, report

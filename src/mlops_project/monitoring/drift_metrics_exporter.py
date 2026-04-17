@@ -19,6 +19,7 @@ from src.mlops_project.monitoring.drift_calculations import (
     assess_retraining_need,
     evaluate_drift,
 )
+from src.mlops_project.data.validate_data import DRIFT_REQUIRED_FEATURE_COLUMNS
 
 
 EXPORTER_INFO = Info("drift_exporter", "Drift exporter build information")
@@ -49,6 +50,11 @@ DRIFT_FEATURE_STATE = Gauge(
     "Per-feature drift state (1 drift, 0 ok)",
     ["feature", "feature_type"],
 )
+DRIFT_FEATURE_SCORE = Gauge(
+    "drift_feature_score",
+    "Per-feature drift score by metric (ks/js/psi)",
+    ["feature", "feature_type", "metric"],
+)
 
 DRIFT_THRESHOLD_KS = Gauge("drift_threshold_ks", "Critical KS threshold")
 DRIFT_THRESHOLD_JS = Gauge("drift_threshold_js", "Critical JS threshold")
@@ -56,6 +62,11 @@ DRIFT_THRESHOLD_PSI = Gauge("drift_threshold_psi", "Critical PSI threshold")
 DRIFT_THRESHOLD_FEATURE_FRACTION = Gauge(
     "drift_threshold_feature_fraction",
     "Critical drifted feature fraction threshold",
+)
+DRIFT_THRESHOLD_BY_METRIC = Gauge(
+    "drift_threshold_by_metric",
+    "Critical drift threshold by metric (ks/js/psi)",
+    ["metric"],
 )
 DRIFT_EXPORT_LAST_UPDATE_UNIX = Gauge(
     "drift_export_last_update_unix",
@@ -164,6 +175,9 @@ def _set_threshold_metrics() -> None:
     DRIFT_THRESHOLD_JS.set(JS_CRITICAL)
     DRIFT_THRESHOLD_PSI.set(PSI_CRITICAL)
     DRIFT_THRESHOLD_FEATURE_FRACTION.set(DRIFT_FRACTION_CRITICAL)
+    DRIFT_THRESHOLD_BY_METRIC.labels(metric="ks").set(KS_CRITICAL)
+    DRIFT_THRESHOLD_BY_METRIC.labels(metric="js").set(JS_CRITICAL)
+    DRIFT_THRESHOLD_BY_METRIC.labels(metric="psi").set(PSI_CRITICAL)
     DQ_THRESHOLD_MISSING_RATIO.set(MISSING_RATIO_THRESHOLD)
     DQ_THRESHOLD_SCHEMA_VIOLATION_FRACTION.set(SCHEMA_VIOLATION_THRESHOLD)
     DQ_THRESHOLD_UNSEEN_CATEGORY_RATIO.set(UNSEEN_CATEGORY_THRESHOLD)
@@ -176,7 +190,9 @@ def _set_threshold_metrics() -> None:
 
 def _compute_data_quality_metrics(reference_df: pd.DataFrame, current_df: pd.DataFrame) -> dict[str, float]:
     common_columns = sorted(set(reference_df.columns) & set(current_df.columns))
-    required_columns = sorted(set(reference_df.columns))
+    # Validate schema against the expected raw feature contract, not against
+    # optional/derived columns (e.g. churn_status, prediction, timestamp).
+    required_columns = sorted(set(DRIFT_REQUIRED_FEATURE_COLUMNS))
 
     total_cells = len(current_df) * len(common_columns)
     if total_cells > 0:
@@ -304,9 +320,9 @@ def collect_heavy_drift_metrics(reference_path: Path, current_path: Path, curren
     numeric_metrics = [m for m in metrics if m["feature_type"] == "numeric"]
     categorical_metrics = [m for m in metrics if m["feature_type"] == "categorical"]
 
-    ks_max = max((m["value"] for m in numeric_metrics), default=0.0)
-    js_max = max((m["value"] for m in categorical_metrics), default=0.0)
-    psi_max = max((m.get("psi") or 0.0 for m in numeric_metrics), default=0.0)
+    ks_max = max((float(m.get("ks") or 0.0) for m in numeric_metrics), default=0.0)
+    js_max = max((float(m.get("js") or 0.0) for m in categorical_metrics), default=0.0)
+    psi_max = max((float(m.get("psi") or 0.0) for m in numeric_metrics), default=0.0)
     avg_severity = float(retrain.get("avg_severity", 0.0))
 
     DRIFT_FEATURES_TOTAL.set(total_features)
@@ -320,11 +336,36 @@ def collect_heavy_drift_metrics(reference_path: Path, current_path: Path, curren
     DRIFT_RETRAIN_CONFIDENCE.set(_confidence_to_level(str(retrain.get("confidence", "low"))))
 
     DRIFT_FEATURE_STATE.clear()
-    for metric in metrics:
+    DRIFT_FEATURE_SCORE.clear()
+    for item in metrics:
+        feature = str(item["feature"])
+        feature_type = str(item["feature_type"])
+
         DRIFT_FEATURE_STATE.labels(
-            feature=str(metric["feature"]),
-            feature_type=str(metric["feature_type"]),
-        ).set(1.0 if metric["alert"] else 0.0)
+            feature=feature,
+            feature_type=feature_type,
+        ).set(1.0 if item["alert"] else 0.0)
+
+        if item.get("ks") is not None:
+            DRIFT_FEATURE_SCORE.labels(
+                feature=feature,
+                feature_type=feature_type,
+                metric="ks",
+            ).set(float(item.get("ks") or 0.0))
+
+        if item.get("js") is not None:
+            DRIFT_FEATURE_SCORE.labels(
+                feature=feature,
+                feature_type=feature_type,
+                metric="js",
+            ).set(float(item.get("js") or 0.0))
+
+        if item.get("psi") is not None:
+            DRIFT_FEATURE_SCORE.labels(
+                feature=feature,
+                feature_type=feature_type,
+                metric="psi",
+            ).set(float(item.get("psi") or 0.0))
 
     EXPORTER_UP.set(1.0)
 
@@ -424,13 +465,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--reference",
         type=Path,
-        default=Path("data/processed/cleaned_data_tree.csv"),
+        default=Path("data/processed/drift_reference_clean.csv"),
         help="Reference dataset CSV",
     )
     parser.add_argument(
         "--current",
         type=Path,
-        default=Path("data/processed/inference_log.csv"),
+        default=Path("data/processed/inference_log_clean.csv"),
         help="Current/inference dataset CSV",
     )
     return parser.parse_args()

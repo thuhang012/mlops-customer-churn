@@ -20,7 +20,7 @@ services:
       - .env
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
-      - PYTHONPATH=/home/user/app/src
+      - PYTHONPATH=/home/user/app
       - DAGSHUB_USERNAME=${DAGSHUB_USERNAME:-${DAGSHUB_USER:-}}
       - DAGSHUB_TOKEN=${DAGSHUB_TOKEN:-}
     depends_on:
@@ -49,7 +49,11 @@ services:
         "--min-new-rows",
         "100",
         "--current-window-size",
-        "5000"
+        "5000",
+        "--reference",
+        "data/processed/drift_reference_clean.csv",
+        "--current",
+        "data/processed/inference_log_clean.csv"
       ]
     ports:
       - "9108:9108"
@@ -60,7 +64,7 @@ services:
       - ./data:/home/user/app/data
       - ./artifacts:/home/user/app/artifacts
     environment:
-      - PYTHONPATH=/home/user/app/src
+      - PYTHONPATH=/home/user/app
     depends_on:
       - api
 

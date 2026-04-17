@@ -4,25 +4,24 @@
   "title": "Customer Churn Monitoring",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
-  "refresh": "15s",
+  "version": 5,
+  "refresh": "5s",
   "panels": [
     {
       "id": 1,
       "type": "stat",
-      "title": "Retraining Recommended",
-      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
-      "targets": [{"expr": "drift_retrain_recommended", "refId": "A"}],
+      "title": "RPS",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m]))", "refId": "A"}],
       "fieldConfig": {
         "defaults": {
-          "mappings": [
-            {"type": "value", "options": {"0": {"text": "No"}, "1": {"text": "Yes"}}}
-          ],
+          "unit": "reqps",
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "red", "value": 1}
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 8},
+              {"color": "green", "value": 15}
             ]
           }
         },
@@ -33,8 +32,52 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Drifted Feature Fraction",
-      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "title": "p95 Lat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(api_request_latency_seconds_bucket{endpoint=~\"/predict|/batch-predict\"}[5m])))", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.35},
+              {"color": "red", "value": 0.6}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Error %",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\",status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m])), 0.001)", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.025},
+              {"color": "red", "value": 0.04}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Drift",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
       "targets": [{"expr": "drift_features_alert_fraction", "refId": "A"}],
       "fieldConfig": {
         "defaults": {
@@ -53,115 +96,49 @@
       "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
     },
     {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Predictions / sec",
+      "gridPos": {"h": 7, "w": 8, "x": 0, "y": 4},
+      "targets": [{"expr": "sum(rate(api_model_predictions_total[5m]))", "refId": "A", "legendFormat": "Pred/s"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "options": {"legend": {"displayMode": "hidden"}, "tooltip": {"mode": "single"}}
+    },
+    {
       "id": 6,
-      "type": "stat",
-      "title": "API Request Rate (RPS)",
-      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
-      "targets": [{"expr": "sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m]))", "refId": "A"}],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {"color": "red", "value": null},
-              {"color": "orange", "value": 0.05},
-              {"color": "green", "value": 0.2}
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+      "type": "timeseries",
+      "title": "Latency p50 / p95 / p99",
+      "gridPos": {"h": 7, "w": 8, "x": 8, "y": 4},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum by (le) (rate(api_request_latency_seconds_bucket{endpoint=~\"/predict|/batch-predict\"}[5m])))", "refId": "A", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(api_request_latency_seconds_bucket{endpoint=~\"/predict|/batch-predict\"}[5m])))", "refId": "B", "legendFormat": "p95"},
+        {"expr": "histogram_quantile(0.99, sum by (le) (rate(api_request_latency_seconds_bucket{endpoint=~\"/predict|/batch-predict\"}[5m])))", "refId": "C", "legendFormat": "p99"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
     },
     {
       "id": 7,
-      "type": "stat",
-      "title": "API 5xx Error Ratio",
-      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
-      "targets": [
-        {
-          "expr": "sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\",status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m])), 0.001)",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 0.02},
-              {"color": "red", "value": 0.05}
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
-    },
-    {
-      "id": 3,
-      "type": "timeseries",
-      "title": "KS / JS / PSI vs Critical Thresholds",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
-      "targets": [
-        {"expr": "drift_numeric_ks_max", "refId": "A", "legendFormat": "KS Max"},
-        {"expr": "drift_categorical_js_max", "refId": "B", "legendFormat": "JS Max"},
-        {"expr": "drift_numeric_psi_max", "refId": "C", "legendFormat": "PSI Max"},
-        {"expr": "drift_threshold_ks", "refId": "D", "legendFormat": "KS Threshold"},
-        {"expr": "drift_threshold_js", "refId": "E", "legendFormat": "JS Threshold"},
-        {"expr": "drift_threshold_psi", "refId": "F", "legendFormat": "PSI Threshold"}
-      ],
-      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
-    },
-    {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Drifted Feature Fraction Over Time",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
-      "targets": [
-        {"expr": "drift_features_alert_fraction", "refId": "A", "legendFormat": "Current Fraction"},
-        {"expr": "drift_threshold_feature_fraction", "refId": "B", "legendFormat": "Critical Fraction Threshold"}
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null},
-              {"color": "red", "value": 0.3}
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
-    },
-    {
-      "id": 5,
       "type": "bargauge",
-      "title": "Per-Feature Drift State",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 13},
+      "title": "Feature Drift Scores (High to Low)",
+      "gridPos": {"h": 7, "w": 8, "x": 16, "y": 4},
       "targets": [
         {
-          "expr": "drift_feature_state",
+          "expr": "sort_desc(max without(instance, job) (drift_feature_score{metric=\"$drift_metric\"}))",
           "refId": "A",
-          "legendFormat": "{{feature}} ({{feature_type}})"
+          "legendFormat": "{{feature}}",
+          "instant": true
         }
       ],
       "fieldConfig": {
         "defaults": {
           "min": 0,
-          "max": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {"color": "green", "value": null},
-              {"color": "red", "value": 1}
+              {"color": "orange", "value": 0.1},
+              {"color": "red", "value": 0.2}
             ]
           }
         },
@@ -176,218 +153,109 @@
     },
     {
       "id": 8,
-      "type": "timeseries",
-      "title": "API Latency p95 / p99",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+      "type": "barchart",
+      "title": "Prediction Distribution (Last 1h)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 11},
       "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(api_request_latency_seconds_bucket{endpoint=~\"/predict|/batch-predict\"}[5m])))",
-          "refId": "A",
-          "legendFormat": "p95"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(api_request_latency_seconds_bucket{endpoint=~\"/predict|/batch-predict\"}[5m])))",
-          "refId": "B",
-          "legendFormat": "p99"
-        }
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.05\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.0\"}[1h]))", "refId": "A", "legendFormat": "0-0.05", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.1\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.05\"}[1h]))", "refId": "B", "legendFormat": "0.05-0.1", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.2\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.1\"}[1h]))", "refId": "C", "legendFormat": "0.1-0.2", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.3\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.2\"}[1h]))", "refId": "D", "legendFormat": "0.2-0.3", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.4\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.3\"}[1h]))", "refId": "E", "legendFormat": "0.3-0.4", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.5\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.4\"}[1h]))", "refId": "F", "legendFormat": "0.4-0.5", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.6\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.5\"}[1h]))", "refId": "G", "legendFormat": "0.5-0.6", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.7\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.6\"}[1h]))", "refId": "H", "legendFormat": "0.6-0.7", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.8\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.7\"}[1h]))", "refId": "I", "legendFormat": "0.7-0.8", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.9\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.8\"}[1h]))", "refId": "J", "legendFormat": "0.8-0.9", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"0.95\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.9\"}[1h]))", "refId": "K", "legendFormat": "0.9-0.95", "instant": true},
+        {"expr": "sum(increase(api_model_prediction_probability_bucket{le=\"1.0\"}[1h])) - sum(increase(api_model_prediction_probability_bucket{le=\"0.95\"}[1h]))", "refId": "L", "legendFormat": "0.95-1.0", "instant": true}
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "none",
+          "color": {"mode": "fixed", "fixedColor": "blue"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Error Rate & Alerts",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 11},
+      "targets": [
+        {"expr": "sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\",status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m])), 0.001)", "refId": "A", "legendFormat": "Error %"},
+        {"expr": "0.04", "refId": "B", "legendFormat": "Critical Threshold"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {"color": "green", "value": null},
-              {"color": "orange", "value": 0.5},
-              {"color": "red", "value": 1.0}
+              {"color": "orange", "value": 0.025},
+              {"color": "red", "value": 0.04}
             ]
           }
         },
         "overrides": []
       },
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "API Request Classes",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
-      "targets": [
-        {
-          "expr": "sum by (status_class) (rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m]))",
-          "refId": "A",
-          "legendFormat": "{{status_class}}"
-        }
-      ],
-      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
     },
     {
       "id": 10,
       "type": "timeseries",
-      "title": "Data Quality Metrics",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 29},
+      "title": "Data Freshness Lag (seconds)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 19},
       "targets": [
-        {"expr": "dq_missing_ratio", "refId": "A", "legendFormat": "Missing Ratio"},
-        {"expr": "dq_unseen_category_ratio", "refId": "B", "legendFormat": "Unseen Category Ratio"},
-        {"expr": "dq_out_of_range_ratio", "refId": "C", "legendFormat": "Out-of-Range Ratio"},
-        {"expr": "dq_schema_violation_fraction", "refId": "D", "legendFormat": "Schema Violation Fraction"}
+        {"expr": "max without(instance, job) (dq_freshness_lag_seconds)", "refId": "A", "legendFormat": "Lag"},
+        {"expr": "max without(instance, job) (dq_threshold_freshness_lag_seconds)", "refId": "B", "legendFormat": "Threshold"}
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 0.05},
-              {"color": "red", "value": 0.1}
-            ]
-          }
-        },
-        "overrides": []
-      },
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
     },
     {
       "id": 11,
       "type": "timeseries",
-      "title": "Data Freshness Lag (seconds)",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 29},
+      "title": "Model Quality Overview",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 19},
       "targets": [
-        {"expr": "dq_freshness_lag_seconds", "refId": "A", "legendFormat": "Lag Seconds"},
-        {"expr": "dq_threshold_freshness_lag_seconds", "refId": "B", "legendFormat": "Lag Threshold"}
+        {"expr": "max without(instance, job) (model_prediction_positive_rate)", "refId": "A", "legendFormat": "Positive Rate"},
+        {"expr": "max without(instance, job) (model_low_confidence_fraction)", "refId": "B", "legendFormat": "Low Confidence"}
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 600},
-              {"color": "red", "value": 1800}
-            ]
-          }
-        },
-        "overrides": []
-      },
+      "fieldConfig": {"defaults": {"unit": "percentunit"}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
     },
     {
       "id": 12,
       "type": "timeseries",
-      "title": "Model Quality: Positive Rate / Low Confidence",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 37},
+      "title": "Selected Drift Max vs Threshold",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 27},
       "targets": [
-        {"expr": "model_prediction_positive_rate", "refId": "A", "legendFormat": "Positive Rate"},
-        {"expr": "model_low_confidence_fraction", "refId": "B", "legendFormat": "Low Confidence Fraction"},
-        {"expr": "model_threshold_positive_rate_min", "refId": "C", "legendFormat": "Positive Min"},
-        {"expr": "model_threshold_positive_rate_max", "refId": "D", "legendFormat": "Positive Max"},
-        {"expr": "model_threshold_low_confidence_fraction", "refId": "E", "legendFormat": "Low Confidence Threshold"}
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 0.3},
-              {"color": "red", "value": 0.4}
-            ]
-          }
+        {
+          "expr": "max without(feature, feature_type, instance, job) (drift_feature_score{metric=\"$drift_metric\"})",
+          "refId": "A",
+          "legendFormat": "Selected Max"
         },
-        "overrides": []
-      },
+        {
+          "expr": "max without(instance, job) (drift_threshold_by_metric{metric=\"$drift_metric\"})",
+          "refId": "B",
+          "legendFormat": "Selected Threshold"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
     },
     {
       "id": 13,
-      "type": "timeseries",
-      "title": "Model Prediction Distribution",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 37},
-      "targets": [
-        {"expr": "model_prediction_mean", "refId": "A", "legendFormat": "Prediction Mean"},
-        {"expr": "model_prediction_std", "refId": "B", "legendFormat": "Prediction Std"},
-        {"expr": "model_prediction_count", "refId": "C", "legendFormat": "Prediction Count"}
-      ],
-      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
-    },
-    {
-      "id": 14,
-      "type": "timeseries",
-      "title": "Infrastructure: CPU by Container (cores)",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 45},
-      "targets": [
-        {
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",name=~\".+\"}[5m]))",
-          "refId": "A",
-          "legendFormat": "{{name}}"
-        }
-      ],
-      "fieldConfig": {"defaults": {"unit": "cores"}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
-    },
-    {
-      "id": 15,
-      "type": "timeseries",
-      "title": "Infrastructure: Memory Usage Ratio",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 45},
-      "targets": [
-        {
-          "expr": "(container_memory_working_set_bytes{job=\"cadvisor\",name=~\".+\"} / clamp_min(container_spec_memory_limit_bytes{job=\"cadvisor\",name=~\".+\"}, 1))",
-          "refId": "A",
-          "legendFormat": "{{name}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 0.8},
-              {"color": "red", "value": 0.9}
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
-    },
-    {
-      "id": 16,
-      "type": "timeseries",
-      "title": "Infrastructure Events (OOM / Restart / Net Errors)",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 53},
-      "targets": [
-        {
-          "expr": "sum by (name) (increase(container_oom_events_total{job=\"cadvisor\",name=~\".+\"}[15m]))",
-          "refId": "A",
-          "legendFormat": "OOM {{name}}"
-        },
-        {
-          "expr": "sum by (name) (changes(container_start_time_seconds{job=\"cadvisor\",name=~\".+\"}[15m]))",
-          "refId": "B",
-          "legendFormat": "Restart {{name}}"
-        },
-        {
-          "expr": "sum by (name) (rate(container_network_receive_errors_total{job=\"cadvisor\",name=~\".+\"}[5m]) + rate(container_network_transmit_errors_total{job=\"cadvisor\",name=~\".+\"}[5m]))",
-          "refId": "C",
-          "legendFormat": "Net Err {{name}}"
-        }
-      ],
-      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
-    },
-    {
-      "id": 17,
       "type": "alertlist",
       "title": "Active Alerts",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 61},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 35},
       "options": {
         "viewMode": "list",
         "groupMode": "default",
@@ -397,6 +265,23 @@
       }
     }
   ],
-  "templating": {"list": []},
+  "templating": {
+    "list": [
+      {
+        "name": "drift_metric",
+        "type": "custom",
+        "label": "Drift Metric",
+        "query": "ks,js,psi",
+        "current": {"text": "js", "value": "js"},
+        "includeAll": false,
+        "multi": false,
+        "options": [
+          {"text": "ks", "value": "ks", "selected": false},
+          {"text": "js", "value": "js", "selected": true},
+          {"text": "psi", "value": "psi", "selected": false}
+        ]
+      }
+    ]
+  },
   "annotations": {"list": []}
 }

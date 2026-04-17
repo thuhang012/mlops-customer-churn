@@ -14,7 +14,12 @@ except ImportError:  # pragma: no cover
     jensenshannon = None
 
 
-EXCLUDE_COLUMNS = {"data_split", "churn_status"}
+EXCLUDE_COLUMNS = {
+    "data_split",
+    "churn_status",
+    "customerID",  # Identifier column; drift here is not actionable.
+}
+CATEGORICAL_OVERRIDE_COLUMNS = {"SeniorCitizen"}
 NUMERIC_DRIFT_THRESHOLD = 0.10
 CATEGORICAL_DRIFT_THRESHOLD = 0.10
 
@@ -29,13 +34,18 @@ def get_feature_columns(df: pd.DataFrame) -> tuple[list[str], list[str]]:
     numeric_columns = [
         col
         for col in df.select_dtypes(include=["number"]).columns.tolist()
-        if col not in EXCLUDE_COLUMNS
+        if col not in EXCLUDE_COLUMNS and col not in CATEGORICAL_OVERRIDE_COLUMNS
     ]
     categorical_columns = [
         col
         for col in df.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
         if col not in EXCLUDE_COLUMNS
     ]
+
+    for column in sorted(CATEGORICAL_OVERRIDE_COLUMNS):
+        if column in df.columns and column not in EXCLUDE_COLUMNS and column not in categorical_columns:
+            categorical_columns.append(column)
+
     return numeric_columns, categorical_columns
 
 
@@ -84,10 +94,26 @@ def js_divergence(reference: pd.Series, current: pd.Series) -> float:
         return 0.0
     p /= p.sum()
     q /= q.sum()
+
+    # Prefer scipy implementation when available, but guard against non-finite outputs.
     if jensenshannon is not None:
-        return float(jensenshannon(p, q, base=2.0))
-    m = 0.5 * (p + q)
-    return float(np.sqrt(0.5 * (entropy(p) + entropy(q) - 2 * entropy(m))))
+        js_distance = float(jensenshannon(p, q, base=2.0))
+        if np.isfinite(js_distance):
+            return js_distance
+
+    # Stable fallback: JS distance = sqrt(0.5 * (KL(p||m) + KL(q||m))).
+    eps = 1e-12
+    p_safe = np.clip(p, eps, 1.0)
+    q_safe = np.clip(q, eps, 1.0)
+    p_safe /= p_safe.sum()
+    q_safe /= q_safe.sum()
+
+    m = 0.5 * (p_safe + q_safe)
+    kl_pm = np.sum(p_safe * np.log2(p_safe / m))
+    kl_qm = np.sum(q_safe * np.log2(q_safe / m))
+    js_div = 0.5 * (kl_pm + kl_qm)
+    js_div = max(js_div, 0.0)
+    return float(np.sqrt(js_div))
 
 
 def chi2_test(reference: pd.Series, current: pd.Series) -> tuple[float | None, float | None]:
@@ -176,9 +202,11 @@ def evaluate_drift(reference: pd.DataFrame, current: pd.DataFrame) -> list[dict[
             {
                 "feature": feature,
                 "feature_type": "numeric",
+                "ks": ks_stat,
+                "js": None,
+                "psi": psi_value,
                 "value": ks_stat,
                 "p_value": ks_p,
-                "psi": psi_value,
                 "severity": min(max(severity, 0.0), 1.0),
                 "alert": alert,
                 "reason": ", ".join(reasons) if reasons else "ok",
@@ -201,9 +229,11 @@ def evaluate_drift(reference: pd.DataFrame, current: pd.DataFrame) -> list[dict[
             {
                 "feature": feature,
                 "feature_type": "categorical",
+                "ks": None,
+                "js": js_score,
+                "psi": None,
                 "value": js_score,
                 "p_value": chi2_p,
-                "psi": None,
                 "severity": min(max(severity, 0.0), 1.0),
                 "alert": alert,
                 "reason": ", ".join(reasons) if reasons else "ok",

@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-04-18T18:21:44.948856+00:00",
+  "drift_detected": false,
+  "degradation_detected": false,
+  "checks": {
+    "feature_drift": {
+      "status": "SKIPPED",
+      "reason": "Missing files: ['data\\\\processed\\\\cleaned_data_tree.csv', 'data\\\\processed\\\\inference_log.csv']"
+    },
+    "performance_degradation": {
+      "status": "SKIPPED",
+      "reason": "Missing files: ['artifacts\\\\baseline\\\\metrics.json']"
+    },
+    "data_quality": {
+      "status": "WARN",
+      "issues": [
+        "Feature drift data availability check failed",
+        "Performance degradation check skipped due to missing metrics files"
+      ]
+    }
+  }
+}

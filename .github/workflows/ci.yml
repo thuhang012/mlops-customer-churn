@@ -62,7 +62,9 @@ jobs:
         run: python -m bandit -r src -q
 
       - name: Run pip-audit
-        run: python -m pip_audit
+        # CVE-2025-69872 (diskcache) currently has no published fixed version.
+        # Keep auditing active and fail on all other vulnerabilities.
+        run: python -m pip_audit --ignore-vuln CVE-2025-69872
 
   pytest-fast:
     runs-on: ubuntu-latest

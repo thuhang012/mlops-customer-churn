@@ -19,7 +19,7 @@ pytestmark = pytest.mark.ct
 
 
 TARGET_COLUMN = "churn_status"
-RAW_DATA_PATH = Path("data/raw/netflix_large.csv")
+RAW_DATA_PATH = Path("data/raw/telcom_churn.csv")
 BASELINE_METRICS_PATH = Path("artifacts/baseline/metrics.json")
 
 

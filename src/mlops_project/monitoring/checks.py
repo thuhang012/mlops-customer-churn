@@ -150,7 +150,21 @@ def main() -> int:
         print("Monitoring checks completed successfully")
         return 0
     except Exception as exc:
+        results = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "drift_detected": False,
+            "degradation_detected": False,
+            "error": str(exc),
+            "checks": {
+                "feature_drift": {"status": "ERROR", "reason": str(exc)},
+                "performance_degradation": {"status": "ERROR", "reason": str(exc)},
+                "data_quality": {"status": "ERROR", "issues": [str(exc)]},
+            },
+        }
         print(f"Error during monitoring: {exc}")
+        print(json.dumps(results, indent=2))
+        save_results(results)
+        output_github_variables(results)
         return 1
 
 

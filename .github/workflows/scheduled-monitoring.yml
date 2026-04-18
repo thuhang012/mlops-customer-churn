@@ -34,14 +34,20 @@ jobs:
       
       - name: Run monitoring checks
         id: check
+        continue-on-error: true
         run: python src/mlops_project/monitoring/checks.py
       
       - name: Upload monitoring results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: monitoring-results
           path: reports/monitoring/
           retention-days: 30
+
+      - name: Fail monitoring job when checks fail
+        if: steps.check.outcome == 'failure'
+        run: exit 1
   
   # Auto-trigger retraining if issues detected
   auto-retrain:

@@ -4,7 +4,7 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
     paths-ignore:
       - '**/*.md'
       - 'notebooks/**'
@@ -83,8 +83,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Pull real dataset with DVC (when secrets are available)
-        if: ${{ secrets.DAGSHUB_TOKEN != '' && secrets.DAGSHUB_USERNAME != '' }}
+      - name: Ensure DagsHub secrets exist
+        run: |
+          if [ -z "${{ secrets.DAGSHUB_TOKEN }}" ] || [ -z "${{ secrets.DAGSHUB_USERNAME }}" ]; then
+            echo "DAGSHUB_TOKEN and DAGSHUB_USERNAME are required to pull the real dataset"
+            exit 1
+          fi
+
+      - name: Pull real dataset with DVC
         env:
           DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
           DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
@@ -93,10 +99,6 @@ jobs:
           dvc remote modify --local origin user "$DAGSHUB_USERNAME"
           dvc remote modify --local origin password "$DAGSHUB_TOKEN"
           dvc pull data/raw/telcom_churn.csv.dvc
-
-      - name: Skip DVC pull when secrets are missing
-        if: ${{ secrets.DAGSHUB_TOKEN == '' || secrets.DAGSHUB_USERNAME == '' }}
-        run: echo "DAGSHUB secrets are not configured. Dataset pull is skipped and data-backed tests may be skipped."
 
       - name: Run tests
         run: python -m pytest -m fast tests/

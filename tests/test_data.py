@@ -27,7 +27,7 @@ REQUIRED_COLUMNS = {
     "MonthlyCharges",
     "TotalCharges",
 }
-TARGET_CANDIDATE_COLUMNS = {"Churn", "churn", "churn_status"}
+TARGET_COLUMN_ALIASES = {"Churn", "churn", "churn_status"}
 
 pytestmark = pytest.mark.fast
 
@@ -42,5 +42,6 @@ def test_data_raw_csv_contains_required_columns():
     missing_cols = REQUIRED_COLUMNS - set(df.columns)
     assert not missing_cols, f"Missing required columns: {sorted(missing_cols)}"
 
-    target_columns_found = TARGET_CANDIDATE_COLUMNS & set(df.columns)
-    assert target_columns_found, f"Missing target column in raw data. Expected one of: {sorted(TARGET_CANDIDATE_COLUMNS)}"
+    assert TARGET_COLUMN_ALIASES.intersection(df.columns), (
+        f"Missing target column. Expected one of: {sorted(TARGET_COLUMN_ALIASES)}"
+    )

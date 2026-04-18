@@ -4,7 +4,7 @@ End-to-end MLOps learning project for churn prediction, built with Agile/Kanban 
 
 Current status:
 
-- Sprint 1 foundation is available (mock API, CI, CD scaffold, DVC tracking).
+- Sprint 1 foundation is available (mock API, CI scaffold, DVC tracking).
 - Some production modules are still placeholders and will be completed in later sprints.
 
 ---
@@ -21,7 +21,7 @@ Primary stack:
 - FastAPI (serving)
 - DVC + DagsHub (data versioning)
 - Docker / Docker Compose (packaging and runtime)
-- GitHub Actions (CI/CD)
+- GitHub Actions (CI)
 
 ---
 
@@ -30,8 +30,7 @@ Primary stack:
 ```text
 MLOpsProject/
 ├── .github/workflows/
-│   ├── ci.yml
-│   └── cd.yml
+│   └── ci.yml
 ├── data/
 │   ├── raw/
 │   ├── processed/
@@ -255,7 +254,7 @@ ports:
 
 ---
 
-## 8) CI/CD Overview
+## 8) CI Overview
 
 ### CI: .github/workflows/ci.yml
 
@@ -268,21 +267,13 @@ Steps:
 4. Run Ruff lint checks
 5. Run pytest
 
-### CD: .github/workflows/cd.yml
-
-1. Build Docker image
-2. Run container & smoke-test /health
-3. Write deployment summary
-
----
-
 ## 9) Team Roles (M1-M6)
 
 - M1: data pipeline and DVC
 - M2: training and MLflow
 - M3: API and serving contract
 - M4: Docker and infrastructure
-- M5: CI/CD quality gates and automation
+- M5: CI quality gates and automation
 - M6: monitoring and drift reporting
 
 ---
@@ -328,4 +319,3 @@ git push
 - [README_DVC.md](README_DVC.md): DVC setup & data versioning guide
 - [README_M4_DOCKER.md](README_M4_DOCKER.md): Docker infrastructure & deployment SOP
 - [.github/workflows/ci.yml](.github/workflows/ci.yml): CI checks
-- [.github/workflows/cd.yml](.github/workflows/cd.yml): CD scaffold

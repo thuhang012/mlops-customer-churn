@@ -397,21 +397,12 @@ docker compose down
 
 ---
 
-## CI/CD Workflow Testing
+## CI/CT Workflow Testing
 
 ### **Test CI locally**
 ```powershell
 python -m ruff check src tests --select E,F
 python -m pytest -m fast tests/ -v
-```
-
-### **Test CD locally**
-```powershell
-docker build -t mlops-project-api:test .
-docker run -d --name test-api -p 8000:8000 -e CI_SMOKE_MODE=true mlops-project-api:test
-sleep 3
-curl http://127.0.0.1:8000/health
-docker rm -f test-api
 ```
 
 ### **Test CT locally**
@@ -423,5 +414,4 @@ Requires real DVC data and working model. See "Full CT Simulation" above.
 
 - **CI tests** are lightweight and should pass on every branch
 - **CT tests** are integration-heavy and only run on `main` branch in GitHub Actions
-- **CD tests** are smoke tests that validate the Docker container can start
-- **Monitoring workflow** is separate and runs on schedule; not part of core CI/CD/CT
+- **Monitoring workflow** is separate and runs on schedule; not part of core CI/CT

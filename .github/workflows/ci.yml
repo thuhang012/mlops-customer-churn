@@ -1,4 +1,4 @@
-# CI workflow for the M5/CICD workstream.
+# CI workflow for the M5/CI workstream.
 # Purpose: run linting and tests on code changes only.
 name: CI
 

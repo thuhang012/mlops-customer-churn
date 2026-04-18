@@ -179,7 +179,12 @@ def main(args):
         try:
             client.create_registered_model(model_name)
         except Exception as e:
+<<<<<<< HEAD
             logger.warning(f"Model '{model_name}' already exists or registration skipped: {e}")
+=======
+            # Model already registered, proceed with versioning
+            logger.debug(f"Model registry: {model_name} already exists - {str(e)}")
+>>>>>>> a02705e (fix: Fix Python 3.11 requirement and update testing guide)
 
         mv = None
         try:

@@ -55,150 +55,224 @@ MLOpsProject/
 
 ---
 
-## 3) Quick Start (Local)
+## 3) Quick Start: Complete Setup Guide
 
-### 3.1 Create and activate virtual environment
+Hướng dẫn chi tiết này sẽ giúp bạn setup toàn bộ dự án từ A-Z.
 
-PowerShell:
+### 3.1 Clone Repository
+
+```powershell
+git clone https://github.com/thuhang012/mlops-customer-churn.git
+cd mlops-customer-churn
+```
+
+### 3.2 Create Virtual Environment (Optional for Local Development)
+
+**Note:** Nếu Python 3.12 của bạn gặp lỗi SSL, hãy bỏ qua bước này và chạy Docker trực tiếp (Docker có Python 3.11 riêng).
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 3.2 Install dependencies
+### 3.3 Install Dependencies (Local Only)
+
+Chỉ cần nếu bạn chạy local, không cần cho Docker:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-### 3.3 Pull data from DVC remote
+### 3.4 Configure DVC Credentials for Docker
 
-See full setup in README_DVC.md. Minimal command:
+**QUAN TRỌNG:** Docker sẽ tự động pull data từ DagsHub. Bạn cần tạo file `.env`:
+
+```powershell
+# Copy .env.example -> .env
+Copy-Item .env.example .env
+```
+
+Mở file `.env` và kiểm tra (hoặc chỉnh sửa) credentials:
+
+```dotenv
+DAGSHUB_USER=bich-le
+DAGSHUB_TOKEN=42faca3ef5d1242b9f72c7f5be0f09e97acd4c82
+```
+
+**Lưu ý bảo mật:** 
+- Token này đã được expose trong `.env.example` - nên rotate token sau khi setup.
+- Đừng commit `.env` vào Git, chỉ commit `.env.example`.
+
+---
+
+## 4) Run with Docker Compose (Recommended)
+
+Docker Compose sẽ:
+1. Tự động pull data từ DagsHub (dùng credentials từ `.env`)
+2. Tự động train model (nếu chưa có model file)
+3. Khởi động MLflow Tracking Server
+4. Khởi động FastAPI Server
+
+### 4.1 Build & Start Services
+
+```powershell
+docker-compose up -d --build
+```
+
+**Output mong đợi:**
+```
+✔ Image mlops-customer-churn-api Built
+✔ Container mlflow_tracker       Healthy
+✔ Container churn_api_container  Started
+```
+
+### 4.2 Xác Nhận Services Đang Chạy
+
+```powershell
+docker-compose ps
+```
+
+Hoặc kiểm tra health check:
+
+```powershell
+curl http://127.0.0.1:8000/health
+```
+
+### 4.3 Truy Cập Các Service
+
+Sau khi Docker chạy, bạn có thể truy cập:
+
+| Service | URL | Mô Tả |
+|---------|-----|-------|
+| FastAPI Swagger UI | http://localhost:8000/docs | API documentation & testing |
+| FastAPI Health Check | http://localhost:8000/health | Kiểm tra server status |
+| MLflow Tracking Server | http://localhost:5555 | Xem model metrics, parameters, artifacts |
+
+### 4.4 Test API Prediction
+
+```powershell
+# Predict endpoint
+$body = @{
+    tenure = 5
+    monthly_charges = 90
+    contract_type = "monthly"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" `
+    -Method Post `
+    -ContentType "application/json" `
+    -Body $body
+```
+
+---
+
+## 5) Local Development (Không dùng Docker)
+
+### 5.1 Activate venv & Install Dependencies
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+dvc[s3] dagshub
+```
+
+### 5.2 Configure DVC Credentials
+
+```powershell
+dvc remote modify origin --local auth basic
+dvc remote modify origin --local user bich-le
+dvc remote modify origin --local password 42faca3ef5d1242b9f72c7f5be0f09e97acd4c82
+```
+
+### 5.3 Pull Data from DVC
 
 ```powershell
 dvc pull -r origin
 ```
 
-Expected file after success:
+Sau lệnh này, file `data/raw/netflix_large.csv` sẽ xuất hiện.
 
-- data/raw/netflix_large.csv
-
----
-
-## 4) Run API
-
-Current API is a Sprint 1 mock service.
-
-### Run locally
-
-```powershell
-uvicorn src.mlops_project.api.serve:app --host 0.0.0.0 --port 8000
-```
-
-### Endpoints
-
-- GET / -> service message
-- GET /health -> health check
-- POST /predict -> mock churn probability
-
-Sample request:
-
-```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" -Method Post -ContentType "application/json" -Body '{"tenure":5,"monthly_charges":90,"contract_type":"monthly"}'
-```
-
----
-
-## 5) Testing and Quality Gates
-
-### Local checks
+### 5.4 Run Tests Locally
 
 ```powershell
 python -m ruff check src tests --select E,F,W
 python -m pytest tests/
 ```
 
-### Existing tests
+### 5.5 Run API Locally
 
-- tests/test_api.py: health endpoint smoke test
-- tests/test_data.py: raw data existence + required columns
-- tests/test_model.py: placeholder test (to be replaced in later sprint)
-
-Ruff and pytest config are defined in pyproject.toml.
+```powershell
+uvicorn src.mlops_project.api.serve:app --host 0.0.0.0 --port 8000
+```
 
 ---
 
-## 6) CI/CD Overview
+## 6) Stop & Cleanup Docker
+
+### Stop Services
+
+```powershell
+docker-compose down
+```
+
+### Complete Reset (Xóa Database)
+
+```powershell
+docker-compose down -v
+```
+
+---
+
+## 7) Troubleshooting
+
+### Docker Container Exiting
+
+Kiểm tra logs:
+
+```powershell
+docker-compose logs -f churn_api_container
+docker-compose logs -f mlflow_tracker
+```
+
+### DVC Pull Failed
+
+Kiểm tra credentials trong `.env`:
+
+```powershell
+docker-compose down
+# Sửa .env
+docker-compose up -d --build
+```
+
+### Port Already in Use
+
+Nếu port 8000 hoặc 5555 bị dùng, chỉnh sửa `docker-compose.yml`:
+
+```yaml
+ports:
+  - "8001:8000"  # Đổi từ 8000 sang 8001
+```
+
+---
+
+## 8) CI/CD Overview
 
 ### CI: .github/workflows/ci.yml
 
-Triggers:
-
-- push to main
-- pull_request to main
+Triggers: push to main, pull_request to main
 
 Steps:
-
 1. Checkout code
 2. Set up Python 3.10
-3. Install runtime and dev dependencies
+3. Install runtime & dev dependencies
 4. Run Ruff lint checks
 5. Run pytest
 
-### CD (Scaffold): .github/workflows/cd.yml
-
-Current flow:
+### CD: .github/workflows/cd.yml
 
 1. Build Docker image
-2. Run container and smoke-test /health
-3. Write deployment summary in GitHub Actions
-
-Note:
-
-- Offline-first: smoke-test only, no image push to GHCR.
-- Docker is for local validation; CD does not require online registry.
-
----
-
-## 7) Docker Usage
-
-### Build and run with Docker Compose
-
-```powershell
-docker compose up -d --build
-```
-
-Check health:
-
-```powershell
-curl http://127.0.0.1:8000/health
-```
-
-Stop services:
-
-```powershell
-docker compose down
-```
-
----
-
-## 8) DVC Workflow (Team)
-
-When dataset changes:
-
-```powershell
-dvc add data/raw/your_data.csv
-dvc push -r origin
-git add data/raw/your_data.csv.dvc .gitignore
-git commit -m "Update dataset"
-git push
-```
-
-Important:
-
-- Never git add large raw data files directly.
-- Commit .dvc pointers, not heavy artifacts.
+2. Run container & smoke-test /health
+3. Write deployment summary
 
 ---
 
@@ -211,30 +285,47 @@ Important:
 - M5: CI/CD quality gates and automation
 - M6: monitoring and drift reporting
 
-Sprint progress notes are maintained as local working notes and are not part of the shared repository documentation.
-
 ---
 
-## 10) Known Gaps and Next Steps
+## 10) DVC Workflow for Team
 
-- dvc.yaml pipeline stages are not finalized yet.
-- Model training/evaluation scripts are still in progress.
-- Monitoring flow and retraining trigger are pending.
-- Cloud deployment target is pending final integration.
+Khi dataset thay đổi:
+
+```powershell
+dvc add data/raw/your_data.csv
+dvc push -r origin
+git add data/raw/your_data.csv.dvc .gitignore
+git commit -m "Update dataset"
+git push
+```
+
+**Important:**
+- Never git add large raw data files directly.
+- Commit .dvc pointers, not heavy artifacts.
 
 ---
 
 ## 11) Security Notes
 
 - Do not hardcode secrets or tokens in source code.
-- Keep credentials in local config or CI secret managers.
-- Rotate tokens immediately if exposed in shared docs/history.
+- Keep credentials in `.env` or CI secret managers.
+- Rotate tokens immediately if exposed.
+- Never commit `.env` to Git.
 
 ---
 
-## 12) Useful Files
+## 12) Known Gaps and Next Steps
 
-- README_DVC.md: data setup and DVC usage
-- README_DVC.md: DVC setup and data versioning guide
-- .github/workflows/ci.yml: CI checks
-- .github/workflows/cd.yml: CD scaffold
+- dvc.yaml pipeline stages not finalized yet
+- Model training/evaluation scripts in progress
+- Monitoring flow and retraining trigger pending
+- Cloud deployment target pending
+
+---
+
+## 13) Useful Files
+
+- [README_DVC.md](README_DVC.md): DVC setup & data versioning guide
+- [README_M4_DOCKER.md](README_M4_DOCKER.md): Docker infrastructure & deployment SOP
+- [.github/workflows/ci.yml](.github/workflows/ci.yml): CI checks
+- [.github/workflows/cd.yml](.github/workflows/cd.yml): CD scaffold

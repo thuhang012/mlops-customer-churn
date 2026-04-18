@@ -1,12 +1,22 @@
 stages:
   preprocess:
-    cmd: python -m src.mlops_project.data.preprocess
+    cmd: .\\venv\\Scripts\\python.exe -m src.mlops_project.data.preprocess
     deps:
-      - data/raw/netflix_large.csv
+      - data/raw/telcom_churn.csv
       - src/mlops_project/data/load_data.py
       - src/mlops_project/data/validate_data.py
       - src/mlops_project/data/preprocess.py
       - src/mlops_project/features/build_features.py
     outs:
-      - data/processed/cleaned_data.csv
+      - data/processed/cleaned_data_tree.csv
+      - data/processed/cleaned_data_linear.csv
       - artifacts/preprocessors/preprocessor.pkl
+
+  train:
+    cmd: .\\venv\\Scripts\\python.exe src/mlops_project/models/train.py --config configs/best_model.yaml --data data/processed/cleaned_data_tree.csv --models-dir artifacts/models --mlflow-tracking-uri file:./mlruns_local
+    deps:
+      - configs/best_model.yaml
+      - data/processed/cleaned_data_tree.csv
+      - src/mlops_project/models/train.py
+    outs:
+      - artifacts/models/Telco_Churn_Model_final.pkl

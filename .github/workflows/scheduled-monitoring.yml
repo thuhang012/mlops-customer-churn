@@ -34,7 +34,7 @@ jobs:
       
       - name: Run monitoring checks
         id: check
-        run: python scripts/monitoring/checks.py
+        run: python src/mlops_project/monitoring/checks.py
       
       - name: Upload monitoring results
         uses: actions/upload-artifact@v4

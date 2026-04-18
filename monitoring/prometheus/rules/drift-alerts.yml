@@ -1,0 +1,279 @@
+groups:
+  - name: drift-critical-rules
+    rules:
+      - alert: DriftCriticalKS
+        expr: drift_numeric_ks_max > drift_threshold_ks
+        for: 10m
+        labels:
+          severity: critical
+          type: drift
+        annotations:
+          summary: "Critical numeric KS drift"
+          description: "Max KS={{ $value }} is above the configured critical KS threshold"
+
+      - alert: DriftCriticalJS
+        expr: drift_categorical_js_max > drift_threshold_js
+        for: 10m
+        labels:
+          severity: critical
+          type: drift
+        annotations:
+          summary: "Critical categorical JS drift"
+          description: "Max JS={{ $value }} is above configured threshold"
+
+      - alert: DriftCriticalPSI
+        expr: drift_numeric_psi_max > drift_threshold_psi
+        for: 10m
+        labels:
+          severity: critical
+          type: drift
+        annotations:
+          summary: "Critical PSI drift"
+          description: "Max PSI={{ $value }} exceeds critical PSI threshold"
+
+      - alert: DriftHighFeatureFraction
+        expr: drift_features_alert_fraction > drift_threshold_feature_fraction
+        for: 10m
+        labels:
+          severity: critical
+          type: drift
+        annotations:
+          summary: "High fraction of drifted features"
+          description: "Drifted feature fraction={{ $value }} exceeds configured fraction threshold"
+
+      - alert: DriftRetrainingRecommended
+        expr: drift_retrain_recommended == 1
+        for: 10m
+        labels:
+          severity: warning
+          type: retraining
+        annotations:
+          summary: "Retraining recommendation triggered"
+          description: "Exporter indicates retraining should be considered"
+
+  - name: service-rules
+    rules:
+      - alert: APITargetDown
+        expr: up{job="api"} == 0 or absent(up{job="api"})
+        for: 2m
+        labels:
+          severity: critical
+          type: service
+        annotations:
+          summary: "API scrape target is down"
+          description: "Prometheus cannot scrape the API metrics endpoint"
+
+      - alert: APIHigh5xxErrorRate
+        expr: |
+          (
+            sum(rate(api_requests_total{endpoint=~"/predict|/batch-predict",status_class="5xx"}[5m]))
+            /
+            clamp_min(sum(rate(api_requests_total{endpoint=~"/predict|/batch-predict"}[5m])), 0.001)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          type: service
+        annotations:
+          summary: "High API 5xx error rate"
+          description: "5xx error ratio exceeded 5% over the last 5 minutes"
+
+      - alert: APIHighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, endpoint) (
+              rate(api_request_latency_seconds_bucket{endpoint=~"/predict|/batch-predict"}[5m])
+            )
+          ) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          type: service
+        annotations:
+          summary: "High API latency p95"
+          description: "p95 API latency > 1s for predict endpoints"
+
+      - alert: APILowRequestRate
+        expr: |
+          sum(rate(api_requests_total{endpoint=~"/predict|/batch-predict"}[10m])) < 0.01
+        for: 30m
+        labels:
+          severity: warning
+          type: service
+        annotations:
+          summary: "Low API request rate"
+          description: "Request rate dropped below expected baseline (<0.01 req/s)"
+
+  - name: exporter-availability-rules
+    rules:
+      - alert: DriftExporterTargetDown
+        expr: up{job="drift_exporter"} == 0 or absent(up{job="drift_exporter"})
+        for: 2m
+        labels:
+          severity: critical
+          type: drift-exporter
+        annotations:
+          summary: "Drift exporter scrape target is down"
+          description: "Prometheus cannot scrape the drift exporter metrics endpoint"
+
+      - alert: DriftExporterCollectionFailure
+        expr: drift_exporter_up == 0
+        for: 5m
+        labels:
+          severity: critical
+          type: drift-exporter
+        annotations:
+          summary: "Drift exporter collection is failing"
+          description: "Exporter process is running but collection loop reports failure"
+
+  - name: data-quality-rules
+    rules:
+      - alert: DataQualityMissingValuesHigh
+        expr: dq_missing_ratio > dq_threshold_missing_ratio
+        for: 10m
+        labels:
+          severity: warning
+          type: data-quality
+        annotations:
+          summary: "High missing-value ratio"
+          description: "Missing ratio={{ $value }} exceeded configured threshold"
+
+      - alert: DataQualitySchemaViolation
+        expr: dq_schema_violation_fraction > dq_threshold_schema_violation_fraction
+        for: 2m
+        labels:
+          severity: critical
+          type: data-quality
+        annotations:
+          summary: "Schema violation detected"
+          description: "Current data is missing required columns from reference schema"
+
+      - alert: DataQualityUnseenCategoryHigh
+        expr: dq_unseen_category_ratio > dq_threshold_unseen_category_ratio
+        for: 10m
+        labels:
+          severity: warning
+          type: data-quality
+        annotations:
+          summary: "High unseen-category ratio"
+          description: "Unseen category ratio={{ $value }} exceeded threshold"
+
+      - alert: DataQualityOutOfRangeHigh
+        expr: dq_out_of_range_ratio > dq_threshold_out_of_range_ratio
+        for: 10m
+        labels:
+          severity: warning
+          type: data-quality
+        annotations:
+          summary: "High out-of-range feature ratio"
+          description: "Out-of-range ratio={{ $value }} exceeded threshold"
+
+      - alert: DataFreshnessLagHigh
+        expr: dq_freshness_lag_seconds > dq_threshold_freshness_lag_seconds
+        for: 15m
+        labels:
+          severity: warning
+          type: data-quality
+        annotations:
+          summary: "Inference data freshness lag is high"
+          description: "No recent inference records; lag={{ $value }} seconds"
+
+  - name: model-quality-rules
+    rules:
+      - alert: ModelLowConfidenceHigh
+        expr: model_low_confidence_fraction > model_threshold_low_confidence_fraction
+        for: 15m
+        labels:
+          severity: warning
+          type: model-quality
+        annotations:
+          summary: "High low-confidence prediction fraction"
+          description: "Low-confidence fraction={{ $value }} exceeded threshold"
+
+      - alert: ModelPositiveRateTooLow
+        expr: model_prediction_positive_rate < model_threshold_positive_rate_min
+        for: 20m
+        labels:
+          severity: warning
+          type: model-quality
+        annotations:
+          summary: "Prediction positive rate too low"
+          description: "Positive rate={{ $value }} below configured minimum"
+
+      - alert: ModelPositiveRateTooHigh
+        expr: model_prediction_positive_rate > model_threshold_positive_rate_max
+        for: 20m
+        labels:
+          severity: warning
+          type: model-quality
+        annotations:
+          summary: "Prediction positive rate too high"
+          description: "Positive rate={{ $value }} above configured maximum"
+
+  - name: infrastructure-rules
+    rules:
+      - alert: InfraHighCPUUsage
+        expr: |
+          sum by (name) (
+            rate(container_cpu_usage_seconds_total{job="cadvisor",name=~".+"}[5m])
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          type: infrastructure
+        annotations:
+          summary: "Container CPU usage is high"
+          description: "Container {{ $labels.name }} CPU usage > 0.8 cores"
+
+      - alert: InfraHighMemoryUsage
+        expr: |
+          (
+            container_memory_working_set_bytes{job="cadvisor",name=~".+"}
+            /
+            clamp_min(container_spec_memory_limit_bytes{job="cadvisor",name=~".+"}, 1)
+          ) > 0.90
+          and
+          container_spec_memory_limit_bytes{job="cadvisor",name=~".+"} > 0
+        for: 10m
+        labels:
+          severity: warning
+          type: infrastructure
+        annotations:
+          summary: "Container memory usage is high"
+          description: "Container {{ $labels.name }} memory usage above 90% of limit"
+
+      - alert: InfraContainerRestartDetected
+        expr: changes(container_start_time_seconds{job="cadvisor",name=~".+"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          type: infrastructure
+        annotations:
+          summary: "Container restart detected"
+          description: "Container {{ $labels.name }} restarted in the last 15 minutes"
+
+      - alert: InfraOOMEventsDetected
+        expr: increase(container_oom_events_total{job="cadvisor",name=~".+"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          type: infrastructure
+        annotations:
+          summary: "OOM event detected"
+          description: "Container {{ $labels.name }} had one or more OOM events"
+
+      - alert: InfraNetworkErrorsDetected
+        expr: |
+          (
+            rate(container_network_receive_errors_total{job="cadvisor",name=~".+"}[5m])
+            +
+            rate(container_network_transmit_errors_total{job="cadvisor",name=~".+"}[5m])
+          ) > 0
+        for: 5m
+        labels:
+          severity: warning
+          type: infrastructure
+        annotations:
+          summary: "Container network errors detected"
+          description: "Container {{ $labels.name }} has non-zero network error rate"

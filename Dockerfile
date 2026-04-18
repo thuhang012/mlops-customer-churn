@@ -1,7 +1,7 @@
 # Stage 1: Builder
 FROM python:3.11-slim AS builder
 
-# Install system dependencies required for building and dvc
+# Install system dependencies required for building and git
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     git \
@@ -14,14 +14,17 @@ RUN pip install --no-cache-dir uv
 ENV VIRTUAL_ENV=/opt/venv
 RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH" \
-    UV_HTTP_TIMEOUT=300
+    UV_HTTP_TIMEOUT=300 \
+    PYTHONPATH=/home/user/app/src
 
 WORKDIR /build
 COPY requirements.txt .
 
-# Install reqs + explicit dvc, dvc[s3] and dagshub
+# Install reqs + dvc, dagshub, mlflow
+# Removing extra dvc[s3] if not needed tightly keeping < 500MB 
+# though dvc natively supports dagshub
 RUN uv pip install --no-cache -r requirements.txt \
-    && uv pip install --no-cache "dvc[s3]" dagshub "mlflow==2.10.0"
+    && uv pip install --no-cache dvc dagshub "mlflow==2.10.0"
 
 # Stage 2: Runtime
 FROM python:3.11-slim
@@ -52,12 +55,15 @@ RUN sed -i 's/\r$//' ./scripts/entrypoint.sh && chmod +x ./scripts/entrypoint.sh
 # Copy Application Code and Configs
 # This ensures that no mock files or raw files are copied, dependent on .dockerignore
 COPY --chown=user:user src/ ./src/
+COPY --chown=user:user configs/ ./configs/
 COPY --chown=user:user data/ ./data/
 COPY --chown=user:user artifacts/ ./artifacts/
 COPY --chown=user:user dvc.yaml dvc.lock ./
 COPY --chown=user:user .dvc/ ./.dvc/
+COPY --chown=user:user streamlit_app/ ./streamlit_app/
 
 EXPOSE 8000
+EXPOSE 8501
 
 # Executing the bootstrap
 ENTRYPOINT ["bash", "scripts/entrypoint.sh"]

@@ -22,6 +22,8 @@ from catboost import CatBoostClassifier
 import logging
 from mlflow.tracking import MlflowClient
 
+import os
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -39,7 +41,7 @@ def parse_args():
     parser.add_argument(
         "--mlflow-tracking-uri",
         type=str,
-        default="http://127.0.0.1:5000",
+        default=os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"),
         help="MLflow tracking URI",
     )
     return parser.parse_args()
@@ -63,7 +65,7 @@ def main(args):
         config = yaml.safe_load(f)
 
     # Trích xuất thông tin từ cấu trúc YAML của bạn
-    model_name = config.get("project", "Netflix_Churn_Model")
+    model_name = config.get("project", "Telco_Churn_Model")
     best_algo = config.get("best_model_overall")
     params = config.get("hyperparameters")
 
@@ -151,12 +153,23 @@ def main(args):
         mlflow.log_param("selected_threshold", SELECTED_THRESHOLD)
 
         # 4. Log Model dựa trên thuật toán
+        explicit_reqs = [
+            "mlflow",
+            "numpy",
+            "pandas",
+            "scikit-learn",
+            "cloudpickle",
+            "xgboost",
+            "lightgbm",
+            "catboost",
+        ]
+
         if best_algo == "LightGBM":
-            mlflow.lightgbm.log_model(model, "tuned_model")
+            mlflow.lightgbm.log_model(model, "tuned_model", pip_requirements=explicit_reqs)
         elif best_algo == "XGBoost":
-            mlflow.xgboost.log_model(model, "tuned_model")
+            mlflow.xgboost.log_model(model, "tuned_model", pip_requirements=explicit_reqs)
         else:
-            mlflow.sklearn.log_model(model, "tuned_model")
+            mlflow.sklearn.log_model(model, "tuned_model", pip_requirements=explicit_reqs)
 
         # 5. Đăng ký vào Registry
         run_id = mlflow.active_run().info.run_id
@@ -165,11 +178,15 @@ def main(args):
 
         try:
             client.create_registered_model(model_name)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Model '{model_name}' already exists or registration skipped: {e}")
 
-        mv = client.create_model_version(name=model_name, source=model_uri, run_id=run_id)
-        client.transition_model_version_stage(name=model_name, version=mv.version, stage="Staging")
+        mv = None
+        try:
+            mv = client.create_model_version(name=model_name, source=model_uri, run_id=run_id)
+            client.transition_model_version_stage(name=model_name, version=mv.version, stage="Staging")
+        except Exception as e:
+            logger.warning(f"Skipping model registry operations: {e}")
 
         # 6. Lưu file .pkl cục bộ
 
@@ -180,12 +197,16 @@ def main(args):
                 "model": model,
                 "threshold": SELECTED_THRESHOLD,
                 "model_name": best_algo,
+                "feature_columns": list(X_train.columns),
             },
             save_path,
         )
 
         logger.info("-" * 30)
-        logger.info(f"DONE: Model {model_name} registered (v{mv.version})")
+        if mv is not None:
+            logger.info(f"DONE: Model {model_name} registered (v{mv.version})")
+        else:
+            logger.info(f"DONE: Model {model_name} trained and logged without registry version")
         logger.info(f"FILE SAVED: {save_path}")
         logger.info(f"Decision threshold saved: {SELECTED_THRESHOLD}")
         logger.info(f"PR-AUC: {metrics['pr_auc']:.4f}")

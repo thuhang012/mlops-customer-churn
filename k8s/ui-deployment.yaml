@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: churn-ui
+  labels:
+    app: churn-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: churn-ui
+  template:
+    metadata:
+      labels:
+        app: churn-ui
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: mlops-cluster-control-plane
+      tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+      containers:
+      - name: churn-ui
+        image: churn-api:v1
+        env:
+        - name: APP_ROLE
+          value: "ui"
+        - name: API_URL
+          value: "http://churn-api-svc:8000"
+        - name: DAGSHUB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dagshub-secret
+              key: username
+        - name: DAGSHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dagshub-secret
+              key: token
+        ports:
+        - containerPort: 8501
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+          requests:
+            memory: "128Mi"
+            cpu: "50m"

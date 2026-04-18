@@ -29,6 +29,9 @@ spec:
         - --backend-store-uri
         - sqlite:////mlflow/mlflow.db
         - --default-artifact-root
+        - mlflow-artifacts:/
+        - --serve-artifacts
+        - --artifacts-destination
         - /mlflow/artifacts
         readinessProbe:
           httpGet:
@@ -36,6 +39,13 @@ spec:
             port: 5000
           initialDelaySeconds: 10
           periodSeconds: 5
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
         volumeMounts:
         - name: mlflow-data
           mountPath: /mlflow
@@ -66,4 +76,4 @@ spec:
   ports:
   - port: 5000
     targetPort: 5000
-    nodePort: 30555
+    nodePort: 30500

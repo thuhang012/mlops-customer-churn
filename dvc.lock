@@ -1,34 +1,60 @@
 schema: '2.0'
 stages:
   preprocess:
-    cmd: python -m src.mlops_project.data.preprocess
+    cmd: .\\venv\\Scripts\\python.exe -m src.mlops_project.data.preprocess
     deps:
-    - path: data/raw/netflix_large.csv
+    - path: data/raw/telcom_churn.csv
       hash: md5
-      md5: 1b837fbc9dc98d9c15dbf8d248c544f2
-      size: 9669730
+      md5: 0f9de68e012bd3aed5fa7cdc9fc421af
+      size: 977501
     - path: src/mlops_project/data/load_data.py
       hash: md5
-      md5: fb7285937e9237b8ac7996b802f34896
-      size: 799
+      md5: 0733c66d34120df0e891aaeabd39a325
+      size: 1078
     - path: src/mlops_project/data/preprocess.py
       hash: md5
-      md5: beacd9babef8b2ec932458182a75c102
-      size: 4995
+      md5: 2e878d5a932407a41366fb6a54431406
+      size: 7862
     - path: src/mlops_project/data/validate_data.py
       hash: md5
-      md5: e871d7c17be018593e0f55ce8d07962f
-      size: 2833
+      md5: 167e58e3d767df229e255fae21f2b823
+      size: 7880
     - path: src/mlops_project/features/build_features.py
       hash: md5
-      md5: ddccf21c8a88600bbbf3dcf4bbc27d58
-      size: 5552
+      md5: c41a3c7ec9b186e15ec16c2028a0a985
+      size: 10714
     outs:
     - path: artifacts/preprocessors/preprocessor.pkl
       hash: md5
-      md5: bc8ad80b3f12b237f5c6970a47591d8f
-      size: 160726
-    - path: data/processed/cleaned_data.csv
+      md5: 4f84c8c438416da862f198d1df8ebc64
+      size: 38166
+    - path: data/processed/cleaned_data_linear.csv
       hash: md5
-      md5: 9807819fa0a65768c8a991afa3423137
-      size: 28496489
+      md5: eaf8433daf91e5942fdcb9ce90dde7a8
+      size: 1884488
+    - path: data/processed/cleaned_data_tree.csv
+      hash: md5
+      md5: 5dbb9ec30358d79db0cd77dea8505e4d
+      size: 1481067
+  train:
+    cmd: .\\venv\\Scripts\\python.exe src/mlops_project/models/train.py --config
+      configs/best_model.yaml --data data/processed/cleaned_data_tree.csv 
+      --models-dir artifacts/models --mlflow-tracking-uri file:./mlruns_local
+    deps:
+    - path: configs/best_model.yaml
+      hash: md5
+      md5: 2ba90365ec9a593ccd4a505d0cb43843
+      size: 306
+    - path: data/processed/cleaned_data_tree.csv
+      hash: md5
+      md5: 5dbb9ec30358d79db0cd77dea8505e4d
+      size: 1481067
+    - path: src/mlops_project/models/train.py
+      hash: md5
+      md5: 2f349c59e68c24b30eba0cc558842203
+      size: 7507
+    outs:
+    - path: artifacts/models/Telco_Churn_Model_final.pkl
+      hash: md5
+      md5: 542739eecfe2d750ea4eb33e390a02f6
+      size: 223300

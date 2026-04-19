@@ -6,13 +6,12 @@ import joblib
 import numpy as np
 import pandas as pd
 import pytest
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import f1_score, roc_auc_score
 from sklearn.utils.validation import check_is_fitted
 
 from src.mlops_project.api.service import MODEL_PATH, PREPROCESSOR_PATH
 from src.mlops_project.data.validate_data import clean_raw_dataframe
 from src.mlops_project.features.build_features import prepare_feature_inputs
-from src.mlops_project.models.evaluate import compute_metrics, extract_model_and_threshold
 
 
 pytestmark = pytest.mark.ct
@@ -37,7 +36,15 @@ def _load_model_bundle() -> tuple[object, float]:
     except Exception as exc:
         pytest.skip(f"Cannot load model artifact {model_path}: {exc}")
 
-    model, threshold = extract_model_and_threshold(loaded, default_threshold=0.5)
+    # Extract model and threshold from loaded bundle
+    if isinstance(loaded, dict) and "model" in loaded:
+        model = loaded["model"]
+        threshold = loaded.get("threshold", 0.5)
+    else:
+        # Assume loaded object is the model itself
+        model = loaded
+        threshold = 0.5
+
     return model, threshold
 
 
@@ -148,7 +155,13 @@ def test_ct_metrics_meet_baseline_quality_gate():
 
     transformed_df = _transform_inputs(x_inputs, preprocessor, feature_columns)
     y_proba = model.predict_proba(transformed_df)[:, 1]
-    metrics = compute_metrics(y_true=y_true, y_proba=y_proba, threshold=threshold)
+
+    # Compute metrics inline
+    y_pred = (y_proba >= threshold).astype(int)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
+    auc = roc_auc_score(y_true, y_proba)
+
+    metrics = {"f1_score": f1, "roc_auc": auc}
 
     baseline_f1 = float(baseline.get("f1_score", 0.60))
     baseline_auc = float(baseline.get("roc_auc", 0.65))

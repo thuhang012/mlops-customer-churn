@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "      MLOps Project:   Bootstrap (Engineer M4)         " -ForegroundColor Cyan
+Write-Host "      MLOps Project:   Bootstrap          " -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 
 # 1. .env Validation

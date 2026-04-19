@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from typing import Literal
 
 YesNo = Literal["Yes", "No"]
@@ -19,7 +19,7 @@ class CustomerInput(BaseModel):
         extra="forbid",
         str_strip_whitespace=True,
     )
-    customerID: str | None = None
+    customerID: str
 
     gender: Gender
     SeniorCitizen: int = Field(..., ge=0, le=1)
@@ -51,6 +51,19 @@ class CustomerInput(BaseModel):
         if v in ("", " ", None):
             raise ValueError("Value is required")
         return float(v)
+
+    @field_validator("customerID", mode="before")
+    @classmethod
+    def validate_customer_id(cls, v):
+        if v in (None, "", " "):
+            raise ValueError("customerID is required")
+        return str(v).strip()
+
+    @model_validator(mode="after")
+    def validate_total_vs_monthly(self):
+        if self.TotalCharges < self.MonthlyCharges:
+            raise ValueError("TotalCharges must be greater than or equal to MonthlyCharges")
+        return self
 
 class PredictionOutput(BaseModel):
     churn_probability: float = Field(..., ge=0.0, le=1.0)

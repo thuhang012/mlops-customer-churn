@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
+import httpx
 import pandas as pd
 import streamlit as st
 from pydantic import ValidationError
@@ -12,11 +14,13 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.mlops_project.api.schema import CustomerInput
-from src.mlops_project.api.service import artifacts_status, batch_predict, predict
+from src.mlops_project.api.schema import CustomerInput, PredictionOutput
+from src.mlops_project.api.service import artifacts_status
+from src.mlops_project.utils.logger import customer_id_exists
 
 
 METRICS_PATH = ROOT_DIR / "artifacts" / "metrics" / "metrics.json"
+API_BASE_URL = os.getenv("CHURN_API_URL", "http://127.0.0.1:8000").rstrip("/")
 
 YES_NO_OPTIONS = ["Yes", "No"]
 MULTIPLE_LINES_OPTIONS = ["Yes", "No", "No phone service"]
@@ -136,11 +140,29 @@ def render_sidebar() -> tuple[dict, dict | None]:
     return status, metrics
 
 
+def _sync_total_charges_with_monthly() -> None:
+    if not st.session_state.get("single_total_charges_touched", False):
+        st.session_state["single_total_charges"] = st.session_state["single_monthly_charges"]
+
+
+def _mark_total_charges_overridden() -> None:
+    st.session_state["single_total_charges_touched"] = True
+
+
 def build_customer_payload() -> dict[str, object]:
+    if "single_monthly_charges" not in st.session_state:
+        st.session_state["single_monthly_charges"] = 70.35
+    if "single_total_charges" not in st.session_state:
+        st.session_state["single_total_charges"] = st.session_state["single_monthly_charges"]
+    if "single_total_charges_touched" not in st.session_state:
+        st.session_state["single_total_charges_touched"] = False
+
     col1, col2 = st.columns(2)
 
     with col1:
         customer_id = st.text_input("Customer ID", value="7590-VHVEG")
+        if not str(customer_id).strip():
+            st.warning("Customer ID cannot be empty.")
         gender = st.selectbox("Gender", ["Female", "Male"])
         senior = st.selectbox("Senior Citizen", [0, 1], index=0)
         partner = st.selectbox("Partner", YES_NO_OPTIONS)
@@ -161,14 +183,24 @@ def build_customer_payload() -> dict[str, object]:
         paperless = st.selectbox("Paperless Billing", YES_NO_OPTIONS)
         payment_method = st.selectbox("Payment Method", PAYMENT_METHOD_OPTIONS)
         monthly_charges = st.number_input(
-            "Monthly Charges", min_value=0.0, value=70.35, step=0.01
+            "Monthly Charges",
+            min_value=0.0,
+            step=0.01,
+            key="single_monthly_charges",
+            on_change=_sync_total_charges_with_monthly,
         )
         total_charges = st.number_input(
-            "Total Charges", min_value=0.0, value=845.5, step=0.01
+            "Total Charges",
+            min_value=0.0,
+            step=0.01,
+            key="single_total_charges",
+            on_change=_mark_total_charges_overridden,
         )
+        if float(total_charges) < float(monthly_charges):
+            st.warning("Total Charges must be greater than or equal to Monthly Charges.")
 
     return {
-        "customerID": customer_id or None,
+        "customerID": str(customer_id).strip(),
         "gender": gender,
         "SeniorCitizen": int(senior),
         "Partner": partner,
@@ -191,20 +223,97 @@ def build_customer_payload() -> dict[str, object]:
     }
 
 
+def api_predict(customer: CustomerInput) -> PredictionOutput:
+    with httpx.Client(timeout=30.0) as client:
+        response = client.post(
+            f"{API_BASE_URL}/predict",
+            json=customer.model_dump(),
+        )
+    response.raise_for_status()
+    return PredictionOutput.model_validate(response.json())
+
+
+def api_batch_predict(rows: list[CustomerInput]) -> list[PredictionOutput]:
+    with httpx.Client(timeout=60.0) as client:
+        response = client.post(
+            f"{API_BASE_URL}/batch-predict",
+            json=[row.model_dump() for row in rows],
+        )
+    response.raise_for_status()
+    return [PredictionOutput.model_validate(item) for item in response.json()]
+
+
+def _format_row_numbers(indexes: pd.Index) -> str:
+    # Show user-facing row numbers (1-based within uploaded data table).
+    return ", ".join(str(int(i) + 1) for i in indexes.tolist())
+
+
+def validate_batch_rules(batch_df: pd.DataFrame) -> list[str]:
+    issues: list[str] = []
+
+    customer_ids = batch_df["customerID"].fillna("").astype(str).str.strip()
+    empty_id_mask = customer_ids.eq("")
+    if empty_id_mask.any():
+        issues.append(
+            "Customer ID cannot be empty. Rows: "
+            + _format_row_numbers(batch_df.index[empty_id_mask])
+        )
+
+    non_empty_ids = customer_ids[~empty_id_mask]
+    duplicate_mask = non_empty_ids.duplicated(keep=False)
+    if duplicate_mask.any():
+        duplicate_rows = non_empty_ids.index[duplicate_mask]
+        issues.append(
+            "Batch contains duplicate customerID values. Rows: "
+            + _format_row_numbers(duplicate_rows)
+        )
+
+    existing_rows = [
+        idx for idx, cid in non_empty_ids.items() if customer_id_exists(str(cid))
+    ]
+    if existing_rows:
+        issues.append(
+            "Some customerID values already exist in inference log. Rows: "
+            + _format_row_numbers(pd.Index(existing_rows))
+        )
+
+    monthly = pd.to_numeric(batch_df["MonthlyCharges"], errors="coerce")
+    total = pd.to_numeric(batch_df["TotalCharges"], errors="coerce")
+    total_lt_monthly_mask = (total < monthly).fillna(False)
+    if total_lt_monthly_mask.any():
+        issues.append(
+            "Total Charges must be greater than or equal to Monthly Charges. Rows: "
+            + _format_row_numbers(batch_df.index[total_lt_monthly_mask])
+        )
+
+    return issues
+
+
 def render_single_prediction() -> None:
     st.subheader("Single Prediction")
     st.caption("Enter customer information to predict churn risk.")
 
-    with st.form("single_prediction_form"):
-        payload = build_customer_payload()
-        submitted = st.form_submit_button("Predict", use_container_width=True)
+    payload = build_customer_payload()
+    customer_id = str(payload.get("customerID") or "").strip()
+    is_customer_id_empty = len(customer_id) == 0
+    is_customer_id_taken = (not is_customer_id_empty) and customer_id_exists(customer_id)
+    total_lt_monthly = float(payload["TotalCharges"]) < float(payload["MonthlyCharges"])
+
+    if is_customer_id_taken:
+        st.error(f"Customer ID '{customer_id}' already exists.")
+
+    submitted = st.button(
+        "Predict",
+        use_container_width=True,
+        disabled=is_customer_id_empty or is_customer_id_taken or total_lt_monthly,
+    )
 
     if not submitted:
         return
 
     try:
         customer = CustomerInput(**payload)
-        result = predict(customer)
+        result = api_predict(customer)
 
         churn_prob = result.churn_probability
         st.success("Prediction completed.")
@@ -224,6 +333,11 @@ def render_single_prediction() -> None:
     except ValidationError as exc:
         st.error("Input validation failed.")
         st.code(str(exc))
+    except httpx.HTTPStatusError as exc:
+        st.error(f"API returned an error: {exc.response.status_code}")
+        st.code(exc.response.text)
+    except httpx.HTTPError as exc:
+        st.error(f"Cannot reach API at {API_BASE_URL}: {exc}")
     except Exception as exc:
         st.error(f"Prediction failed: {exc}")
 
@@ -255,8 +369,14 @@ def render_batch_prediction() -> None:
             st.error(f"Missing required columns in the CSV: {missing_columns}")
             return
 
+        batch_issues = validate_batch_rules(batch_df)
+        if batch_issues:
+            for issue in batch_issues:
+                st.error(issue)
+            return
+
         rows = [CustomerInput(**record) for record in batch_df.to_dict(orient="records")]
-        results = batch_predict(rows)
+        results = api_batch_predict(rows)
 
         result_df = batch_df.copy()
         result_df["churn_probability"] = [item.churn_probability for item in results]
@@ -284,6 +404,11 @@ def render_batch_prediction() -> None:
     except ValidationError as exc:
         st.error("CSV validation failed.")
         st.code(str(exc))
+    except httpx.HTTPStatusError as exc:
+        st.error(f"API returned an error: {exc.response.status_code}")
+        st.code(exc.response.text)
+    except httpx.HTTPError as exc:
+        st.error(f"Cannot reach API at {API_BASE_URL}: {exc}")
     except Exception as exc:
         st.error(f"Batch prediction failed: {exc}")
 

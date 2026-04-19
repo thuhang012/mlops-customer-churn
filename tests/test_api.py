@@ -1,4 +1,5 @@
 import pytest
+from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from src.mlops_project.api.serve import app
@@ -9,9 +10,10 @@ pytestmark = pytest.mark.fast
 
 
 def _load_real_payloads() -> list[dict]:
+    suffix = uuid4().hex[:8]
     return [
         {
-            "customerID": "0001-A",
+            "customerID": f"0001-A-{suffix}",
             "gender": "Female",
             "SeniorCitizen": 0,
             "Partner": "Yes",
@@ -33,7 +35,7 @@ def _load_real_payloads() -> list[dict]:
             "TotalCharges": 954.0,
         },
         {
-            "customerID": "0002-B",
+            "customerID": f"0002-B-{suffix}",
             "gender": "Male",
             "SeniorCitizen": 1,
             "Partner": "No",
@@ -132,6 +134,27 @@ def test_api_predict_rejects_invalid_field_type():
     sample_payload = _load_real_payloads()[0]
     bad_payload = sample_payload.copy()
     bad_payload["MonthlyCharges"] = "abc"
+
+    response = client.post("/predict", json=bad_payload)
+
+    assert response.status_code == 422
+
+
+def test_api_predict_rejects_null_customer_id():
+    sample_payload = _load_real_payloads()[0]
+    bad_payload = sample_payload.copy()
+    bad_payload["customerID"] = None
+
+    response = client.post("/predict", json=bad_payload)
+
+    assert response.status_code == 422
+
+
+def test_api_predict_rejects_total_charges_less_than_monthly():
+    sample_payload = _load_real_payloads()[0]
+    bad_payload = sample_payload.copy()
+    bad_payload["MonthlyCharges"] = 100.0
+    bad_payload["TotalCharges"] = 50.0
 
     response = client.post("/predict", json=bad_payload)
 

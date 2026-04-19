@@ -65,6 +65,8 @@ services:
       - ./artifacts:/home/user/app/artifacts
     environment:
       - PYTHONPATH=/home/user/app
+      - DAGSHUB_USERNAME=${DAGSHUB_USERNAME:-${DAGSHUB_USER:-}}
+      - DAGSHUB_TOKEN=${DAGSHUB_TOKEN:-}
     depends_on:
       - api
 

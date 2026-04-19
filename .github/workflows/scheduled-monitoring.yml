@@ -200,9 +200,9 @@ jobs:
       
       - name: Summary
         run: |
-          echo "## 🔍 Monitoring Report" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Monitoring Status Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Check job result: ${{ needs['check-drift-metrics'].result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Drift detected: ${{ needs['check-drift-metrics'].outputs['drift-detected'] }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Degradation: ${{ needs['check-drift-metrics'].outputs['degradation-detected'] }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Auto-Retrain: ${{ needs.auto-retrain.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Check job result: ${{ needs['check-drift-metrics'].result }} (monitoring checks completed)" >> $GITHUB_STEP_SUMMARY
+          echo "- Drift detected: ${{ needs['check-drift-metrics'].outputs['drift-detected'] }} (no drift signal found)" >> $GITHUB_STEP_SUMMARY
+          echo "- Degradation: ${{ needs['check-drift-metrics'].outputs['degradation-detected'] }} (metrics stayed within threshold)" >> $GITHUB_STEP_SUMMARY
+          echo "- Auto-Retrain: ${{ needs.auto-retrain.result }} (skipped because no drift/degradation was detected)" >> $GITHUB_STEP_SUMMARY

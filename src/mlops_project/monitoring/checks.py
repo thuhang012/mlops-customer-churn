@@ -127,9 +127,7 @@ def run_monitoring_checks(
 
     if fail_on_missing_inputs and missing_inputs:
         unique_missing_inputs = sorted(set(missing_inputs))
-        raise FileNotFoundError(
-            "Missing required monitoring inputs: " + ", ".join(unique_missing_inputs)
-        )
+        raise FileNotFoundError("Missing required monitoring inputs: " + ", ".join(unique_missing_inputs))
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),

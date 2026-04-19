@@ -185,18 +185,15 @@ def evaluate_drift(reference: pd.DataFrame, current: pd.DataFrame) -> list[dict[
             continue
         ks_stat, ks_p = ks_test(ref_values, cur_values)
         psi_value = psi(ref_values, cur_values)
-        alert = (ks_p is not None and ks_p < 0.05) or ks_stat > NUMERIC_DRIFT_THRESHOLD or psi_value > 0.1
+        alert = ks_stat > NUMERIC_DRIFT_THRESHOLD or psi_value > 0.1
         reasons: list[str] = []
-        if ks_p is not None and ks_p < 0.05:
-            reasons.append("KS p<0.05")
         if ks_stat > NUMERIC_DRIFT_THRESHOLD:
             reasons.append(f"KS>{NUMERIC_DRIFT_THRESHOLD}")
         if psi_value > 0.1:
             reasons.append("PSI>0.1")
         severity = (
-            0.5 * min(ks_stat, 1.0)
-            + 0.35 * min(psi_value / 0.2, 1.0)
-            + 0.15 * (1.0 if ks_p is not None and ks_p < 0.05 else 0.0)
+            0.6 * min(ks_stat, 1.0)
+            + 0.4 * min(psi_value / 0.2, 1.0)
         )
         metrics.append(
             {
@@ -218,13 +215,11 @@ def evaluate_drift(reference: pd.DataFrame, current: pd.DataFrame) -> list[dict[
             continue
         js_score = js_divergence(reference[feature], current[feature])
         _chi2_stat, chi2_p = chi2_test(reference[feature], current[feature])
-        alert = (chi2_p is not None and chi2_p < 0.05) or js_score > CATEGORICAL_DRIFT_THRESHOLD
+        alert = js_score > CATEGORICAL_DRIFT_THRESHOLD
         reasons: list[str] = []
-        if chi2_p is not None and chi2_p < 0.05:
-            reasons.append("chi2 p<0.05")
         if js_score > CATEGORICAL_DRIFT_THRESHOLD:
             reasons.append(f"JS>{CATEGORICAL_DRIFT_THRESHOLD}")
-        severity = 0.6 * min(js_score, 1.0) + 0.4 * (1.0 if chi2_p is not None and chi2_p < 0.05 else 0.0)
+        severity = min(js_score, 1.0)
         metrics.append(
             {
                 "feature": feature,

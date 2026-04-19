@@ -56,7 +56,7 @@
       "type": "stat",
       "title": "Error %",
       "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
-      "targets": [{"expr": "sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\",status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m])), 0.001)", "refId": "A"}],
+      "targets": [{"expr": "(sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\",status_class=\"5xx\"}[5m])) or vector(0)) / clamp_min((sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m])) or vector(0)), 0.001)", "refId": "A"}],
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -188,7 +188,7 @@
       "title": "Error Rate & Alerts",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 11},
       "targets": [
-        {"expr": "sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\",status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m])), 0.001)", "refId": "A", "legendFormat": "Error %"},
+        {"expr": "(sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\",status_class=\"5xx\"}[5m])) or vector(0)) / clamp_min((sum(rate(api_requests_total{endpoint=~\"/predict|/batch-predict\"}[5m])) or vector(0)), 0.001)", "refId": "A", "legendFormat": "Error %"},
         {"expr": "0.04", "refId": "B", "legendFormat": "Critical Threshold"}
       ],
       "fieldConfig": {

@@ -365,14 +365,22 @@ def render_batch_prediction() -> None:
         st.dataframe(batch_df.head(10), use_container_width=True)
 
         missing_columns = [col for col in CSV_COLUMNS if col not in batch_df.columns]
+        batch_issues: list[str] = []
         if missing_columns:
             st.error(f"Missing required columns in the CSV: {missing_columns}")
-            return
+        else:
+            batch_issues = validate_batch_rules(batch_df)
 
-        batch_issues = validate_batch_rules(batch_df)
         if batch_issues:
             for issue in batch_issues:
                 st.error(issue)
+
+        run_batch = st.button(
+            "Run Batch Prediction",
+            use_container_width=True,
+            disabled=bool(missing_columns or batch_issues),
+        )
+        if not run_batch:
             return
 
         rows = [CustomerInput(**record) for record in batch_df.to_dict(orient="records")]

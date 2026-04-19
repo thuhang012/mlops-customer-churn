@@ -8,8 +8,8 @@ groups:
           severity: critical
           type: drift
         annotations:
-          summary: "Critical numeric KS drift"
-          description: "Max KS={{ $value }} is above the configured critical KS threshold"
+          summary: "Critical numeric KS drift (effect-size)"
+          description: "Max KS={{ $value }} is above critical KS threshold (effect-size rule only)"
 
       - alert: DriftCriticalJS
         expr: drift_categorical_js_max > drift_threshold_js
@@ -18,8 +18,8 @@ groups:
           severity: critical
           type: drift
         annotations:
-          summary: "Critical categorical JS drift"
-          description: "Max JS={{ $value }} is above configured threshold"
+          summary: "Critical categorical JS drift (effect-size)"
+          description: "Max JS={{ $value }} is above critical JS threshold (effect-size rule only)"
 
       - alert: DriftCriticalPSI
         expr: drift_numeric_psi_max > drift_threshold_psi
@@ -28,8 +28,8 @@ groups:
           severity: critical
           type: drift
         annotations:
-          summary: "Critical PSI drift"
-          description: "Max PSI={{ $value }} exceeds critical PSI threshold"
+          summary: "Critical PSI drift (effect-size)"
+          description: "Max PSI={{ $value }} exceeds critical PSI threshold (effect-size rule only)"
 
       - alert: DriftHighFeatureFraction
         expr: drift_features_alert_fraction > drift_threshold_feature_fraction
@@ -38,8 +38,8 @@ groups:
           severity: critical
           type: drift
         annotations:
-          summary: "High fraction of drifted features"
-          description: "Drifted feature fraction={{ $value }} exceeds configured fraction threshold"
+          summary: "High fraction of drifted features (effect-size alerts)"
+          description: "Drifted-feature fraction={{ $value }} exceeds threshold; feature alerts are effect-size based"
 
       - alert: DriftRetrainingRecommended
         expr: drift_retrain_recommended == 1

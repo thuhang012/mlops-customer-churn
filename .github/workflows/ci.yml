@@ -4,13 +4,13 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "master"]
     paths-ignore:
       - '**/*.md'
       - 'notebooks/**'
       - 'reports/**'
   pull_request:
-    branches: ["**"]
+    branches: ["main", "master"]
     paths-ignore:
       - '**/*.md'
       - 'notebooks/**'

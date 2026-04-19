@@ -2,7 +2,7 @@ name: Monitoring
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
+    - cron: '*/5 * * * *'  # Every 5 minutes (temporary for testing)
   workflow_dispatch:
 
 permissions:
@@ -44,6 +44,16 @@ jobs:
           name: monitoring-results
           path: reports/monitoring/
           retention-days: 30
+
+      - name: Print monitoring root cause
+        if: always()
+        run: |
+          if [ -f reports/monitoring/latest_check.json ]; then
+            echo "=== reports/monitoring/latest_check.json ==="
+            cat reports/monitoring/latest_check.json
+          else
+            echo "Monitoring report file not found: reports/monitoring/latest_check.json"
+          fi
 
       - name: Fail monitoring job when checks fail
         if: steps.check.outcome == 'failure'

@@ -46,6 +46,7 @@ catboost_info/
 # =========================
 
 mlruns_local/
+mlruns_dvc/
 mlartifacts/
 mlflow.db
 mlflowdb/

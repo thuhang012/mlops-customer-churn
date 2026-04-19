@@ -15,6 +15,8 @@ on:
   schedule:
     - cron: '0 2 * * 1'
   workflow_dispatch:
+
+    
     inputs:
       reason:
         description: 'Trigger reason'
@@ -80,20 +82,20 @@ jobs:
           dvc remote modify --local origin auth basic
           dvc remote modify --local origin user "$DAGSHUB_USERNAME"
           dvc remote modify --local origin password "$DAGSHUB_TOKEN"
-          dvc pull data/raw/netflix_large.csv.dvc
+          dvc pull data/raw/telcom_churn.csv.dvc
 
       - name: Verify pulled dataset
         run: |
-          test -f data/raw/netflix_large.csv
+          test -f data/raw/telcom_churn.csv
           echo "Real dataset is available"
 
       - name: Validate data
-        run: python scripts/validation/validate_data.py data/raw/netflix_large.csv
+        run: python scripts/validation/validate_data.py data/raw/telcom_churn.csv
 
       - name: Preprocess real dataset
         run: |
           python -m src.mlops_project.data.preprocess \
-            --input data/raw/netflix_large.csv \
+            --input data/raw/telcom_churn.csv \
             --output data/processed/cleaned_data.csv \
             --preprocessor artifacts/preprocessors/preprocessor.pkl
 
@@ -135,7 +137,7 @@ jobs:
       - name: Train model
         run: |
           python src/mlops_project/models/train.py \
-            --config artifacts/models/best_model_config.yaml \
+            --config configs/best_model.yaml \
             --data data/processed/cleaned_data.csv \
             --models-dir artifacts/models \
             --mlflow-tracking-uri file:./mlruns
@@ -143,7 +145,7 @@ jobs:
       - name: Evaluate trained model
         run: |
           python -m src.mlops_project.models.evaluate \
-            --model artifacts/models/Netflix_Prediction_final.pkl \
+            --model artifacts/models/Telco_Churn_Model_final.pkl \
             --data data/processed/cleaned_data.csv \
             --reports-dir reports
 
@@ -205,7 +207,7 @@ jobs:
           echo "- **Data Preparation**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
           echo "- **Training and Evaluation**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
           echo "- **Baseline Registration**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Reference Model Artifact**: artifacts/models/Netflix_Prediction_final.pkl" >> $GITHUB_STEP_SUMMARY
+          echo "- **Reference Model Artifact**: artifacts/models/Telco_Churn_Model_final.pkl" >> $GITHUB_STEP_SUMMARY
 
   pipeline-gate:
     runs-on: ubuntu-latest

@@ -5,16 +5,23 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
 
-DEFAULT_REFERENCE_PATH = Path("data/processed/cleaned_data_tree.csv")
+DEFAULT_REFERENCE_PATH = Path("data/processed/drift_reference_clean.csv")
 DEFAULT_PRODUCTION_LOG_PATH = Path("data/processed/inference_log.csv")
 DEFAULT_BASELINE_METRICS_PATH = Path("artifacts/baseline/metrics.json")
 DEFAULT_CURRENT_METRICS_PATH = Path("artifacts/metrics/metrics.json")
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _load_json(path: Path) -> dict:
@@ -72,6 +79,7 @@ def run_monitoring_checks(
     baseline_metrics_path: Path = DEFAULT_BASELINE_METRICS_PATH,
     current_metrics_path: Path = DEFAULT_CURRENT_METRICS_PATH,
     max_allowed_degradation: float = 0.05,
+    fail_on_missing_inputs: bool = False,
 ) -> dict:
     """Run monitoring checks focused on degradation and input availability.
 
@@ -81,6 +89,7 @@ def run_monitoring_checks(
     drift_detected = False
     degradation_detected = False
     issues: list[str] = []
+    missing_inputs: list[str] = []
 
     if reference_path.exists() and production_log_path.exists():
         production_df = pd.read_csv(production_log_path)
@@ -93,6 +102,7 @@ def run_monitoring_checks(
     else:
         missing = [str(p) for p in [reference_path, production_log_path] if not p.exists()]
         checks["feature_drift"] = {"status": "SKIPPED", "reason": f"Missing files: {missing}"}
+        missing_inputs.extend(missing)
         issues.append("Feature drift data availability check failed")
 
     if baseline_metrics_path.exists() and current_metrics_path.exists():
@@ -107,6 +117,7 @@ def run_monitoring_checks(
     else:
         missing = [str(p) for p in [baseline_metrics_path, current_metrics_path] if not p.exists()]
         checks["performance_degradation"] = {"status": "SKIPPED", "reason": f"Missing files: {missing}"}
+        missing_inputs.extend(missing)
         issues.append("Performance degradation check skipped due to missing metrics files")
 
     checks["data_quality"] = {
@@ -114,8 +125,12 @@ def run_monitoring_checks(
         "issues": issues,
     }
 
+    if fail_on_missing_inputs and missing_inputs:
+        unique_missing_inputs = sorted(set(missing_inputs))
+        raise FileNotFoundError("Missing required monitoring inputs: " + ", ".join(unique_missing_inputs))
+
     return {
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "drift_detected": bool(drift_detected),
         "degradation_detected": bool(degradation_detected),
         "checks": checks,
@@ -143,14 +158,32 @@ def output_github_variables(results: dict) -> None:
 def main() -> int:
     print("Running monitoring checks...")
     try:
-        results = run_monitoring_checks()
+        fail_on_missing_inputs = _env_bool("MONITORING_FAIL_ON_MISSING_INPUTS", True)
+        print(f"Strict input checks enabled: {fail_on_missing_inputs}")
+        results = run_monitoring_checks(
+            fail_on_missing_inputs=fail_on_missing_inputs,
+        )
         print(json.dumps(results, indent=2))
         save_results(results)
         output_github_variables(results)
         print("Monitoring checks completed successfully")
         return 0
     except Exception as exc:
+        results = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "drift_detected": False,
+            "degradation_detected": False,
+            "error": str(exc),
+            "checks": {
+                "feature_drift": {"status": "ERROR", "reason": str(exc)},
+                "performance_degradation": {"status": "ERROR", "reason": str(exc)},
+                "data_quality": {"status": "ERROR", "issues": [str(exc)]},
+            },
+        }
         print(f"Error during monitoring: {exc}")
+        print(json.dumps(results, indent=2))
+        save_results(results)
+        output_github_variables(results)
         return 1
 
 

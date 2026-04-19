@@ -5,17 +5,47 @@ from typing import Any
 import joblib
 import pandas as pd
 
-from src.mlops_project.data.validate_data import clean_raw_dataframe
+from src.mlops_project.data.validate_data import (
+    clean_drift_current_dataframe,
+    clean_raw_dataframe,
+)
 from src.mlops_project.features.build_features import prepare_feature_inputs
 
 INFERENCE_LOG_PATH = "data/processed/inference_log.csv"
 INFERENCE_LOG_RAW_PATH = "data/raw/inference_log_raw.csv"
+INFERENCE_LOG_CLEAN_PATH = "data/processed/inference_log_clean.csv"
 PREPROCESSOR_PATH = os.getenv("PREPROCESSOR_PATH", "artifacts/preprocessors/preprocessor.pkl")
 
 
 _LOG_PREPROCESSOR = None
 _RAW_FEATURE_COLUMNS = None
 _TRANSFORMED_FEATURE_COLUMNS = None
+
+
+def _normalize_customer_id(customer_id: Any) -> str | None:
+    if customer_id is None:
+        return None
+    normalized = str(customer_id).strip().casefold()
+    return normalized or None
+
+
+def customer_id_exists(customer_id: str | None, path: str = INFERENCE_LOG_RAW_PATH) -> bool:
+    normalized = _normalize_customer_id(customer_id)
+    if normalized is None:
+        return False
+    if not os.path.exists(path):
+        return False
+
+    try:
+        existing = pd.read_csv(path, usecols=["customerID"])
+    except Exception:
+        return False
+
+    if "customerID" not in existing.columns:
+        return False
+
+    existing_ids = existing["customerID"].dropna().map(_normalize_customer_id)
+    return normalized in set(existing_ids.dropna().tolist())
 
 
 def _load_log_preprocessor() -> tuple[Any, list[str], list[str]]:
@@ -58,6 +88,15 @@ def _append_log_entry(path: str, log_entry: dict[str, Any]) -> None:
     df.to_csv(path, index=False)
 
 
+def _prepare_clean_log_entry(input_data: dict[str, Any], prediction: float, timestamp: str) -> dict[str, Any]:
+    raw_df = pd.DataFrame([input_data])
+    cleaned_df, _ = clean_drift_current_dataframe(raw_df)
+    clean_entry = cleaned_df.iloc[0].to_dict()
+    clean_entry["prediction"] = prediction
+    clean_entry["timestamp"] = timestamp
+    return clean_entry
+
+
 def log_inference(input_data: dict, prediction):
     timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -78,5 +117,15 @@ def log_inference(input_data: dict, prediction):
         "timestamp": timestamp,
     }
 
+    try:
+        clean_log_entry = _prepare_clean_log_entry(
+            input_data=input_data,
+            prediction=prediction,
+            timestamp=timestamp,
+        )
+    except Exception:
+        clean_log_entry = raw_log_entry
+
     _append_log_entry(INFERENCE_LOG_RAW_PATH, raw_log_entry)
+    _append_log_entry(INFERENCE_LOG_CLEAN_PATH, clean_log_entry)
     _append_log_entry(INFERENCE_LOG_PATH, processed_log_entry)

@@ -6,7 +6,7 @@ from prometheus_client import Counter, Gauge, Histogram
 
 from src.mlops_project.api.schema import CustomerInput, PredictionOutput
 from src.mlops_project.api.service import predict, batch_predict, artifacts_status
-from src.mlops_project.utils.logger import log_inference
+from src.mlops_project.utils.logger import customer_id_exists, log_inference
 
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -67,6 +67,13 @@ MODEL_LOW_CONFIDENCE_TOTAL = Counter(
 )
 
 LOW_CONFIDENCE_THRESHOLD = 0.60
+
+
+def _normalize_customer_id_for_validation(customer_id: str | None) -> str | None:
+    if customer_id is None:
+        return None
+    normalized = customer_id.strip().casefold()
+    return normalized or None
 
 
 def _observe_prediction(probability: float, endpoint: str) -> None:
@@ -133,10 +140,18 @@ def health_check():
 @app.post("/predict", response_model=PredictionOutput)
 def predict_churn(data: CustomerInput):
     try:
+        if customer_id_exists(data.customerID):
+            raise HTTPException(
+                status_code=400,
+                detail=f"customerID '{data.customerID}' already exists in inference log",
+            )
+
         result = predict(data)
         _observe_prediction(probability=result.churn_probability, endpoint="/predict")
         log_inference(data.model_dump(), result.churn_probability)
         return result
+    except HTTPException as e:
+        raise e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -145,6 +160,27 @@ def predict_churn(data: CustomerInput):
 @app.post("/batch-predict", response_model=list[PredictionOutput])
 def batch_predict_churn(data: list[CustomerInput]):
     try:
+        normalized_ids = [_normalize_customer_id_for_validation(item.customerID) for item in data]
+        non_empty_ids = [cid for cid in normalized_ids if cid is not None]
+
+        if len(set(non_empty_ids)) != len(non_empty_ids):
+            raise HTTPException(
+                status_code=400,
+                detail="Batch contains duplicate customerID values",
+            )
+
+        duplicate_existing = [
+            item.customerID for item in data if customer_id_exists(item.customerID)
+        ]
+        if duplicate_existing:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "customerID already exists in inference log: "
+                    + ", ".join(str(cid) for cid in duplicate_existing)
+                ),
+            )
+
         API_BATCH_SIZE.observe(len(data))
         results = batch_predict(data)
 
@@ -154,6 +190,8 @@ def batch_predict_churn(data: list[CustomerInput]):
 
         return results
 
+    except HTTPException as e:
+        raise e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

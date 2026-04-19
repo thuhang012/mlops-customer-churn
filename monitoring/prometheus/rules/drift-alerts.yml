@@ -53,6 +53,16 @@ groups:
 
   - name: service-rules
     rules:
+      - alert: APITargetDown
+        expr: up{job="api"} == 0 or absent(up{job="api"})
+        for: 2m
+        labels:
+          severity: critical
+          type: service
+        annotations:
+          summary: "API scrape target is down"
+          description: "Prometheus cannot scrape the API metrics endpoint"
+
       - alert: APIHigh5xxErrorRate
         expr: |
           (
@@ -94,6 +104,28 @@ groups:
         annotations:
           summary: "Low API request rate"
           description: "Request rate dropped below expected baseline (<0.01 req/s)"
+
+  - name: exporter-availability-rules
+    rules:
+      - alert: DriftExporterTargetDown
+        expr: up{job="drift_exporter"} == 0 or absent(up{job="drift_exporter"})
+        for: 2m
+        labels:
+          severity: critical
+          type: drift-exporter
+        annotations:
+          summary: "Drift exporter scrape target is down"
+          description: "Prometheus cannot scrape the drift exporter metrics endpoint"
+
+      - alert: DriftExporterCollectionFailure
+        expr: drift_exporter_up == 0
+        for: 5m
+        labels:
+          severity: critical
+          type: drift-exporter
+        annotations:
+          summary: "Drift exporter collection is failing"
+          description: "Exporter process is running but collection loop reports failure"
 
   - name: data-quality-rules
     rules:

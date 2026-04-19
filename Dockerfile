@@ -24,11 +24,7 @@ COPY requirements.txt .
 # Removing extra dvc[s3] if not needed tightly keeping < 500MB 
 # though dvc natively supports dagshub
 RUN uv pip install --no-cache -r requirements.txt \
-<<<<<<< HEAD
     && uv pip install --no-cache dvc dagshub "mlflow==2.10.0"
-=======
-    && uv pip install --no-cache "dvc[s3]" dagshub
->>>>>>> a02705e (fix: Fix Python 3.11 requirement and update testing guide)
 
 # Stage 2: Runtime
 FROM python:3.11-slim

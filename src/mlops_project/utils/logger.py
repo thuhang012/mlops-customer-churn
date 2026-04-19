@@ -22,6 +22,32 @@ _RAW_FEATURE_COLUMNS = None
 _TRANSFORMED_FEATURE_COLUMNS = None
 
 
+def _normalize_customer_id(customer_id: Any) -> str | None:
+    if customer_id is None:
+        return None
+    normalized = str(customer_id).strip().casefold()
+    return normalized or None
+
+
+def customer_id_exists(customer_id: str | None, path: str = INFERENCE_LOG_RAW_PATH) -> bool:
+    normalized = _normalize_customer_id(customer_id)
+    if normalized is None:
+        return False
+    if not os.path.exists(path):
+        return False
+
+    try:
+        existing = pd.read_csv(path, usecols=["customerID"])
+    except Exception:
+        return False
+
+    if "customerID" not in existing.columns:
+        return False
+
+    existing_ids = existing["customerID"].dropna().map(_normalize_customer_id)
+    return normalized in set(existing_ids.dropna().tolist())
+
+
 def _load_log_preprocessor() -> tuple[Any, list[str], list[str]]:
     global _LOG_PREPROCESSOR, _RAW_FEATURE_COLUMNS, _TRANSFORMED_FEATURE_COLUMNS
 

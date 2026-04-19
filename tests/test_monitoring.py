@@ -108,6 +108,22 @@ def test_monitoring_skips_checks_without_errors_when_input_files_are_missing(tmp
     assert results["checks"]["data_quality"]["status"] == "WARN"
 
 
+def test_monitoring_strict_mode_fails_when_input_files_are_missing(tmp_path: Path):
+    reference_path = tmp_path / "missing_reference.csv"
+    production_path = tmp_path / "missing_production.csv"
+    baseline_path = tmp_path / "missing_baseline.json"
+    current_path = tmp_path / "missing_current.json"
+
+    with pytest.raises(FileNotFoundError):
+        run_monitoring_checks(
+            reference_path=reference_path,
+            production_log_path=production_path,
+            baseline_metrics_path=baseline_path,
+            current_metrics_path=current_path,
+            fail_on_missing_inputs=True,
+        )
+
+
 def test_evaluate_drift_excludes_identifier_columns() -> None:
     reference_df = _build_telco_reference_df()
     current_df = reference_df.copy()

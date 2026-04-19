@@ -11,6 +11,7 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.10"
+  MONITORING_FAIL_ON_MISSING_INPUTS: "true"
 
 jobs:
   check-drift-metrics:
@@ -31,6 +32,102 @@ jobs:
       
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Ensure DagsHub secrets exist
+        run: |
+          if [ -z "${{ secrets.DAGSHUB_TOKEN }}" ] || [ -z "${{ secrets.DAGSHUB_USERNAME }}" ]; then
+            echo "DAGSHUB_TOKEN and DAGSHUB_USERNAME are required to pull monitoring inputs"
+            exit 1
+          fi
+
+      - name: Pull monitoring inputs with DVC
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          dvc remote modify --local origin auth basic
+          dvc remote modify --local origin user "$DAGSHUB_USERNAME"
+          dvc remote modify --local origin password "$DAGSHUB_TOKEN"
+          dvc pull data/processed/drift_reference_clean.csv.dvc data/processed/inference_log.csv.dvc
+
+      - name: Resolve latest CT artifacts
+        id: ct_artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ct.yml',
+              branch: 'main',
+              status: 'success',
+              per_page: 1,
+            });
+
+            if (!runs.data.workflow_runs.length) {
+              core.setFailed('No successful CT runs found on main');
+              return;
+            }
+
+            const run = runs.data.workflow_runs[0];
+            core.info(`Using CT run ${run.id}: ${run.html_url}`);
+
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+            });
+
+            const processedData = artifacts.data.artifacts.find(
+              (artifact) => artifact.name === 'processed-data' && !artifact.expired,
+            );
+            const ctArtifacts = artifacts.data.artifacts.find(
+              (artifact) => artifact.name === 'ct-artifacts' && !artifact.expired,
+            );
+
+            if (!processedData) {
+              core.setFailed('processed-data artifact not found on the latest successful CT run');
+              return;
+            }
+
+            if (!ctArtifacts) {
+              core.setFailed('ct-artifacts artifact not found on the latest successful CT run');
+              return;
+            }
+
+            core.setOutput('processed_data_artifact_id', processedData.id);
+            core.setOutput('ct_artifact_id', ctArtifacts.id);
+            core.setOutput('ct_run_url', run.html_url);
+
+      - name: Download latest CT artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .artifacts/processed-data .artifacts/ct-artifacts
+
+          curl -L \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/actions/artifacts/${{ steps.ct_artifacts.outputs.processed_data_artifact_id }}/zip" \
+            -o processed-data.zip
+          unzip -q processed-data.zip -d .artifacts/processed-data
+
+          curl -L \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/actions/artifacts/${{ steps.ct_artifacts.outputs.ct_artifact_id }}/zip" \
+            -o ct-artifacts.zip
+          unzip -q ct-artifacts.zip -d .artifacts/ct-artifacts
+
+          cp -R .artifacts/processed-data/* ./
+          cp -R .artifacts/ct-artifacts/* ./
+
+      - name: Verify monitoring inputs
+        run: |
+          test -f data/processed/drift_reference_clean.csv
+          test -f data/processed/inference_log.csv
+          test -f artifacts/baseline/metrics.json
+          test -f artifacts/metrics/metrics.json
       
       - name: Run monitoring checks
         id: check
@@ -103,8 +200,9 @@ jobs:
       
       - name: Summary
         run: |
-          echo "## 🔍 Monitoring Report" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Monitoring Status Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Drift detected: ${{ needs['check-drift-metrics'].outputs['drift-detected'] }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Degradation: ${{ needs['check-drift-metrics'].outputs['degradation-detected'] }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Auto-Retrain: ${{ needs.auto-retrain.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Check job result: ${{ needs['check-drift-metrics'].result }} (monitoring checks completed)" >> $GITHUB_STEP_SUMMARY
+          echo "- Drift detected: ${{ needs['check-drift-metrics'].outputs['drift-detected'] }} (no drift signal found)" >> $GITHUB_STEP_SUMMARY
+          echo "- Degradation: ${{ needs['check-drift-metrics'].outputs['degradation-detected'] }} (metrics stayed within threshold)" >> $GITHUB_STEP_SUMMARY
+          echo "- Auto-Retrain: ${{ needs.auto-retrain.result }} (skipped because no drift/degradation was detected)" >> $GITHUB_STEP_SUMMARY
